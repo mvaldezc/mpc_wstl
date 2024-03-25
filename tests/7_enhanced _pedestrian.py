@@ -255,6 +255,8 @@ def wstl_synthesis_control(
     # Jerk magnitude cost
     wstl_milp.model.addConstrs(j_abs[k] == grb.norm([jx[k], jy[k]], 1) for k in range(time_horizon-1))
     jerk_cost = sum(j_abs[k] for k in range(time_horizon-1))
+
+    wstl_milp.model.addConstr(rho_formula >= 0)
     
     wstl_milp.model.setObjective(rho_formula - alpha*state_cost - control_cost - zeta*jerk_cost, grb.GRB.MAXIMIZE)
 
@@ -327,7 +329,8 @@ if __name__ == '__main__':
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
     stl_milp, rho_formula, z = wstl_synthesis_control(phi, weights, ped, A, B, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, x_f, alpha=0.0005, betax=0, betay=0.1, zeta=0) 
+                                    #control_ub, x_0, x_f, alpha=0.0005, betax=0, betay=0.1, zeta=0) #0.001
+                                    control_ub, x_0, x_f, alpha=0.00005, betax=0, betay=0.1, zeta=0) #for random values
     stl_end = time.time()
     stl_time = stl_end - stl_start
 
@@ -337,5 +340,5 @@ if __name__ == '__main__':
     print("z:", z.x)
 
     ani = visualize_animation(stl_milp, T, weight_list)
-    #save_vid(ani, "anim/fixed_d48_p2(1.0,0.1).gif")
+    save_vid(ani, "anim/fixed_d48_wrandom.gif")
 

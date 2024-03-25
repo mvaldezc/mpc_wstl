@@ -110,7 +110,7 @@ def visualize2d(stl_milp, sampling_time):
 
 
 # Create an animation that advances with time of the trajectory of the car and the pedestrian
-def visualize_animation(stl_milp, sampling_time, weight_list):
+def visualize_animation(stl_milp, sampling_time, weight_list=None):
     t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
 
     stl_px = [var.x for var in stl_milp.variables['px'].values()]
@@ -143,9 +143,10 @@ def visualize_animation(stl_milp, sampling_time, weight_list):
     ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
     ax.text(x_ped[-1], y_ped[-1], f'({x_ped[-1]:.2f},{y_ped[-1]:.2f})', fontsize=8)
 
-    # print weights
-    ax.text(0.05, 0.95, f'w1: {weight_list[0]} \n w2: {weight_list[1]} \n p1: {weight_list[2]} \n p2: {weight_list[3]}', 
-            transform=ax.transAxes, fontsize=6, verticalalignment='top')
+    if weight_list is not None:
+        # print weights
+        ax.text(0.05, 0.95, f'w1: {weight_list[0]} \n w2: {weight_list[1]} \n p1: {weight_list[2]} \n p2: {weight_list[3]}', 
+                transform=ax.transAxes, fontsize=6, verticalalignment='top')
 
     def animate(i):
         line.set_xdata(stl_px[:i])
@@ -175,11 +176,15 @@ def plot_var(stl_milp, var: str, sampling_time):
 def save_vid(ani, filename):
     # Check if filename exists in the system, otherwise add _1, _2, etc. before the extension
     if os.path.exists(filename):
-        i = 1
+        i = 0
         while os.path.exists(filename):
             i += 1
             filename_parts = filename.split('.')
-            filename_parts[-2] = filename_parts[-2] + f'_{i}'
+            # check if filename has a _1, _2 already
+            if filename_parts[-2][-2] == '_':
+                filename_parts[-2] = filename_parts[-2][:-2] + f'_{i}'
+            else:
+                filename_parts[-2] = filename_parts[-2] + f'_{i}'
             filename = '.'.join(filename_parts)
     ani.save(filename, writer='Pillow', fps=10)
     print(f'Video saved as {filename}')
