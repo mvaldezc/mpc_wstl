@@ -40,7 +40,7 @@ except ImportError:
 # -- Find CARLA module ---------------------------------------------------------
 # ==============================================================================
 try:
-    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob(os.path.expanduser("~")+'/Downloads/CARLA_0.9.15/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -51,7 +51,8 @@ except IndexError:
 # -- Add PythonAPI for release mode --------------------------------------------
 # ==============================================================================
 try:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/carla')
+    #sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/carla')
+    sys.path.append(os.path.expanduser("~")+'/Downloads/CARLA_0.9.15/PythonAPI/carla')
 except IndexError:
     pass
 
@@ -81,30 +82,6 @@ def get_actor_display_name(actor, truncate=250):
     name = ' '.join(actor.type_id.replace('_', '.').title().split('.')[1:])
     return (name[:truncate - 1] + u'\u2026') if len(name) > truncate else name
 
-def get_actor_blueprints(world, filter, generation):
-    bps = world.get_blueprint_library().filter(filter)
-
-    if generation.lower() == "all":
-        return bps
-
-    # If the filter returns only one bp, we assume that this one needed
-    # and therefore, we ignore the generation
-    if len(bps) == 1:
-        return bps
-
-    try:
-        int_generation = int(generation)
-        # Check if generation is in available generations
-        if int_generation in [1, 2, 3]:
-            bps = [x for x in bps if int(x.get_attribute('generation')) == int_generation]
-            return bps
-        else:
-            print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-            return []
-    except:
-        print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-        return []
-
 # ==============================================================================
 # -- World ---------------------------------------------------------------
 # ==============================================================================
@@ -131,8 +108,6 @@ class World(object):
         self.camera_manager = None
         self._weather_presets = find_weather_presets()
         self._weather_index = 0
-        self._actor_filter = args.filter
-        self._actor_generation = args.generation
         self.restart(args)
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
@@ -144,34 +119,20 @@ class World(object):
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_id = self.camera_manager.transform_index if self.camera_manager is not None else 0
 
-        # Get a random blueprint.
-        blueprint_list = get_actor_blueprints(self.world, self._actor_filter, self._actor_generation)
-        if not blueprint_list:
-            raise ValueError("Couldn't find any blueprints with the specified filters")
-        blueprint = random.choice(blueprint_list)
-        blueprint.set_attribute('role_name', 'hero')
+        # Select vehicle
+        blueprint = self.world.get_blueprint_library().find('vehicle.volkswagen.t2_2021') # t2 is cool
+        blueprint.set_attribute('role_name', 'hero')    # Set it as the ego vehicle
         if blueprint.has_attribute('color'):
-            color = random.choice(blueprint.get_attribute('color').recommended_values)
+            color = random.choice(blueprint.get_attribute('color').recommended_values) # random color
             blueprint.set_attribute('color', color)
 
         # Spawn the player.
-        if self.player is not None:
-            spawn_point = self.player.get_transform()
-            spawn_point.location.z += 2.0
-            spawn_point.rotation.roll = 0.0
-            spawn_point.rotation.pitch = 0.0
+        if self.player is not None: # If player exists, destroy it
             self.destroy()
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
-            self.modify_vehicle_physics(self.player)
-        while self.player is None:
-            if not self.map.get_spawn_points():
-                print('There are no spawn points available in your map/town.')
-                print('Please add some Vehicle Spawn Point to your UE4 scene.')
-                sys.exit(1)
-            spawn_points = self.map.get_spawn_points()
-            spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
-            self.modify_vehicle_physics(self.player)
+        # Set spawn position at -143, -4
+        spawn_point = carla.Transform(carla.Location(x=-143, y=-4, z=2), carla.Rotation(yaw=180))
+        self.player = self.world.spawn_actor(blueprint, spawn_point)
+        self.modify_vehicle_physics(self.player)
 
         if self._args.sync:
             self.world.tick()
@@ -720,7 +681,7 @@ def game_loop(args):
         client.set_timeout(60.0)
 
         traffic_manager = client.get_trafficmanager()
-        sim_world = client.get_world()
+        sim_world = client.load_world('Town05')         # Select town 05
 
         if args.sync:
             settings = sim_world.get_settings()
@@ -750,37 +711,37 @@ def game_loop(args):
             agent = BehaviorAgent(world.player, behavior=args.behavior)
 
         # Set the agent destination
-        spawn_points = world.map.get_spawn_points()
-        destination = random.choice(spawn_points).location
-        agent.set_destination(destination)
+        # Create a list of locations that start in (-143, -4) and end in (-259, 4) and are 0.5 meters apart, create a route
+        route = []
+        start = (-143.0, -4.0, 0.45)
+        for i in range(0, 232):
+            route.append(carla.Location(x=start[0] - i*0.5, y=start[1], z=start[2]))
 
         clock = pygame.time.Clock()
 
-        while True:
-            clock.tick()
-            if args.sync:
-                world.world.tick()
-            else:
-                world.world.wait_for_tick()
-            if controller.parse_events():
-                return
-
-            world.tick(clock)
-            world.render(display)
-            pygame.display.flip()
-
-            if agent.done():
-                if args.loop:
-                    agent.set_destination(random.choice(spawn_points).location)
-                    world.hud.notification("Target reached", seconds=4.0)
-                    print("The target has been reached, searching for another target")
+        for location in route:
+            print(location)
+            agent.set_destination(location)
+            while True:
+                clock.tick()
+                if args.sync:
+                    world.world.tick()
                 else:
-                    print("The target has been reached, stopping the simulation")
+                    world.world.wait_for_tick()
+                if controller.parse_events():
+                    return
+
+                world.tick(clock)
+                world.render(display)
+                pygame.display.flip()
+
+                # check if distance to target is less than 2 meters
+                if agent.done():
                     break
 
-            control = agent.run_step()
-            control.manual_gear_shift = False
-            world.player.apply_control(control)
+                control = agent.run_step()
+                control.manual_gear_shift = False
+                world.player.apply_control(control)
 
     finally:
 
@@ -850,7 +811,7 @@ def main():
         "-a", "--agent", type=str,
         choices=["Behavior", "Basic", "Constant"],
         help="select which agent to run",
-        default="Behavior")
+        default="Basic")
     argparser.add_argument(
         '-b', '--behavior', type=str,
         choices=["cautious", "normal", "aggressive"],
