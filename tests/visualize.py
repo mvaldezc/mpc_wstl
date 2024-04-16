@@ -110,7 +110,7 @@ def visualize2d(stl_milp, sampling_time):
 
 
 # Create an animation that advances with time of the trajectory of the car and the pedestrian
-def visualize_animation(stl_milp, sampling_time, weight_list=None):
+def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
     t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
 
     stl_px = [var.x for var in stl_milp.variables['px'].values()]
@@ -130,9 +130,19 @@ def visualize_animation(stl_milp, sampling_time, weight_list=None):
     # plot a green square at setpoint
     ax.plot(stl_px[-1], stl_py[-1], 'gs', label=r'setpoint')
     # plot a black line at sidewalk
-    ax.axhline(y=0, color='k', linestyle='-', label='sidewalk')
-    ax.axhline(y=5, color='k', linestyle='-', label='sidewalk')
-    ax.axhline(y=2.5, color='k', linestyle='--', label='sidewalk')
+    if not carla:
+        ax.axhline(y=0, color='k', linestyle='-', label='sidewalk')
+        ax.axhline(y=5, color='k', linestyle='-')
+        ax.axhline(y=2.5, color='k', linestyle='--', label='sidewalk')
+    else:
+        ax.axhline(y=0, color='k', linestyle='-')
+        ax.axhline(y=1, color='k', linestyle='-')
+        ax.axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+        ax.axhline(y=7.95, color='k', linestyle='-')
+        ax.axhline(y=8.05, color='k', linestyle='-')
+        ax.axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+        ax.axhline(y=15, color='k', linestyle='-')
+        ax.axhline(y=16, color='k', linestyle='-')
 
     line, = ax.plot(stl_px, stl_py, '-r', label=r'car', linewidth=3, marker='s', markersize=7)
     line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7)
