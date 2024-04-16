@@ -119,8 +119,10 @@ class World(object):
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_id = self.camera_manager.transform_index if self.camera_manager is not None else 0
 
+        # ===============================================================================================
         # Select vehicle
-        blueprint = self.world.get_blueprint_library().find('vehicle.volkswagen.t2_2021') # t2 is cool
+        # blueprint = self.world.get_blueprint_library().find('vehicle.volkswagen.t2_2021') # t2 is cool
+        blueprint = self.world.get_blueprint_library().find('vehicle.tesla.cybertruck') # t2 is cool
         blueprint.set_attribute('role_name', 'hero')    # Set it as the ego vehicle
         if blueprint.has_attribute('color'):
             color = random.choice(blueprint.get_attribute('color').recommended_values) # random color
@@ -129,10 +131,12 @@ class World(object):
         # Spawn the player.
         if self.player is not None: # If player exists, destroy it
             self.destroy()
-        # Set spawn position at -143, -4
-        spawn_point = carla.Transform(carla.Location(x=-143, y=-4, z=2), carla.Rotation(yaw=180))
+        # Set spawn position at (-143, -4)
+        spawn_point = carla.Transform(carla.Location(x=-143, y=-4, z=1), carla.Rotation(yaw=180))
         self.player = self.world.spawn_actor(blueprint, spawn_point)
         self.modify_vehicle_physics(self.player)
+
+        # ===============================================================================================
 
         if self._args.sync:
             self.world.tick()
@@ -698,30 +702,33 @@ def game_loop(args):
         hud = HUD(args.width, args.height)
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world)
-        if args.agent == "Basic":
-            agent = BasicAgent(world.player, 30)
-            agent.follow_speed_limits(True)
-        elif args.agent == "Constant":
-            agent = ConstantVelocityAgent(world.player, 30)
-            ground_loc = world.world.ground_projection(world.player.get_location(), 5)
-            if ground_loc:
-                world.player.set_location(ground_loc.location + carla.Location(z=0.01))
-            agent.follow_speed_limits(True)
-        elif args.agent == "Behavior":
-            agent = BehaviorAgent(world.player, behavior=args.behavior)
 
-        # Set the agent destination
-        # Create a list of locations that start in (-143, -4) and end in (-259, 4) and are 0.5 meters apart, create a route
+        #==========================================================================================
+        # Note: sampling resolution < trajectory resolution < distance to goal
+        # Set basic agent
+        agent = BasicAgent(world.player, target_speed=40, opt_dict={'sampling_resolution': 0.5, 'ignore_traffic_light': True})
+        agent.follow_speed_limits(False)
+        
+        # Create a toy trajectory, start (-143, -4), end (-259, 4), resolution 1.0
         route = []
-        start = (-143.0, -4.0, 0.45)
-        for i in range(0, 232):
-            route.append(carla.Location(x=start[0] - i*0.5, y=start[1], z=start[2]))
+        start = (-143.0, -4.0, 0.0)
+        for i in range(0, 116):
+            route.append(carla.Location(x=start[0] - i, y=start[1], z=start[2]))
+
+        # Spawn a walker crossing from (-259,10) to (-260,-12)
+        walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
+        walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
+        walker = world.world.spawn_actor(walker_bp, walker_transform)
+        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.1)
+        walker.apply_control(walker_control)
 
         clock = pygame.time.Clock()
 
+        # Run the agent through the trajectory
         for location in route:
-            print(location)
+            print("Location: ", location)
             agent.set_destination(location)
+
             while True:
                 clock.tick()
                 if args.sync:
@@ -735,10 +742,10 @@ def game_loop(args):
                 world.render(display)
                 pygame.display.flip()
 
-                # check if distance to target is less than 2 meters
-                if agent.done():
+                # Set a threshold distance to look for the next waypoint
+                if location.distance(world.player.get_location()) < 2.0:
                     break
-
+                
                 control = agent.run_step()
                 control.manual_gear_shift = False
                 world.player.apply_control(control)
