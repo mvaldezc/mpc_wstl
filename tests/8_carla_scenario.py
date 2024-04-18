@@ -340,3 +340,11 @@ if __name__ == '__main__':
     ani = visualize_animation(stl_milp, T, carla=True)
     #save_vid(ani, "anim/fixed_d48_wrandom.gif")
 
+    # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
+    x_traj = np.zeros(horizon)
+    y_traj = np.zeros(horizon)
+    for i in range(horizon):
+        x_traj[i] = stl_milp.model.getVarByName('px_' + str(i)).x
+        y_traj[i] = stl_milp.model.getVarByName('py_' + str(i)).x
+    np.savetxt('../carla_settings/carla_traj.csv', np.vstack((x_traj, y_traj)).T, delimiter=',')
+
