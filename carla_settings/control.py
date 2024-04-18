@@ -702,24 +702,29 @@ def game_loop(args):
         hud = HUD(args.width, args.height)
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world)
+        #world.camera_manager.toggle_camera()
 
         #==========================================================================================
         # Note: sampling resolution < trajectory resolution < distance to goal
         # Set basic agent
-        agent = BasicAgent(world.player, target_speed=40, opt_dict={'sampling_resolution': 0.5, 'ignore_traffic_light': True})
+        # agent = BasicAgent(world.player, target_speed=40, opt_dict={'sampling_resolution': 0.5, 'ignore_traffic_light': True})
+        agent = BasicAgent(world.player, target_speed=120, opt_dict={'sampling_resolution': 0.5, 'ignore_traffic_light': True})
         agent.follow_speed_limits(False)
         
-        # Create a toy trajectory, start (-143, -4), end (-259, 4), resolution 1.0
+        # Create a toy trajectory, start (-143, -4), end (-259, -4), resolution 1.0
         route = []
         start = (-143.0, -4.0, 0.0)
-        for i in range(0, 116):
-            route.append(carla.Location(x=start[0] - i, y=start[1], z=start[2]))
+        # for i in range(0, 120):
+        #     route.append(carla.Location(x=start[0] - i, y=start[1], z=start[2]))
+        for i in range(0, 65):
+            route.append(carla.Location(x=start[0] - i*2.0, y=start[1], z=start[2]))
 
         # Spawn a walker crossing from (-259,10) to (-260,-12)
         walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
         walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
         walker = world.world.spawn_actor(walker_bp, walker_transform)
-        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.1)
+        # walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.1)
+        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.6)
         walker.apply_control(walker_control)
 
         clock = pygame.time.Clock()
@@ -745,6 +750,10 @@ def game_loop(args):
                 # Set a threshold distance to look for the next waypoint
                 if location.distance(world.player.get_location()) < 2.0:
                     break
+
+                # If the x component of the current location is less than -258, then reduce vehicle speed
+                if world.player.get_location().x < -225:
+                    agent.set_target_speed(50)
                 
                 control = agent.run_step()
                 control.manual_gear_shift = False
