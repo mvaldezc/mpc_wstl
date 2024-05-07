@@ -282,9 +282,13 @@ if __name__ == '__main__':
     # print(p1)
     # print(p2)
     # Define wSTL specification
-    weights = {"w1" : lambda k : 1.0, 
+    def w1_f(k):
+        if k < horizon/2:
+            return 0.1
+        return 1.0
+    weights = {"w1" : lambda k : w1_f(k), 
                "w2" : lambda k : 1.0, 
-               "p1" : lambda k : [1.0, 1.0][k],
+               "p1" : lambda k : [0.5, 1.0][k],
                "p2" : lambda k : [1.0, 1.0][k],
                }
     # weights = {"w1" : lambda k : w1[k], 
@@ -327,7 +331,7 @@ if __name__ == '__main__':
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
     stl_milp, rho_formula, z = wstl_synthesis_control(phi, weights, ped, A, B, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, x_f, alpha=0.00001, betax=0.0001, betay=1.0, zeta=0.0001)
+                                    control_ub, x_0, x_f, alpha=0.0001, betax=0.0001, betay=1.0, zeta=0.0001)
                                     # control_ub, x_0, x_f, alpha=0, betax=0, betay=1.0, zeta=0)
     stl_end = time.time()
     stl_time = stl_end - stl_start
@@ -338,7 +342,7 @@ if __name__ == '__main__':
     print("z:", z.x)
 
     ani = visualize_animation(stl_milp, T, carla=True)
-    #save_vid(ani, "anim/fixed_d48_wrandom.gif")
+    save_vid(ani, "anim/carla.gif")
 
     # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
     x_traj = np.zeros(horizon)
@@ -346,5 +350,5 @@ if __name__ == '__main__':
     for i in range(horizon):
         x_traj[i] = stl_milp.model.getVarByName('px_' + str(i)).x
         y_traj[i] = stl_milp.model.getVarByName('py_' + str(i)).x
-    np.savetxt('../carla_settings/carla_traj.csv', np.vstack((x_traj, y_traj)).T, delimiter=',')
+    #np.savetxt('../carla_settings/carla_traj.csv', np.vstack((x_traj, y_traj)).T, delimiter=',')
 
