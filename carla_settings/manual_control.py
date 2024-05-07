@@ -56,6 +56,7 @@ import math
 import random
 import re
 import weakref
+import csv
 
 if sys.version_info >= (3, 0):
 
@@ -338,12 +339,12 @@ class DualControl(object):
         K1 = 0.5 #1.0  # 0.55
         steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
 
-        K2 = 1.3  # 1.6
+        K2 = 1.4  # 1.6
         throttleCmd = K2 + (2.05 * math.log10(-0.7 * jsInputs[self._throttle_idx] + 1.4) - 1.2) / 0.92
         if throttleCmd <= 0:
             throttleCmd = 0
-        elif throttleCmd > 0.7: #> 1:
-            throttleCmd = 0.7 #= 1
+        elif throttleCmd > 0.8: #> 1:
+            throttleCmd = 0.8 #= 1
 
         brakeCmd = 1.6 + (2.05 * math.log10(-0.7 * jsInputs[self._brake_idx] + 1.4) - 1.2) / 0.92
         if brakeCmd <= 0:
@@ -779,37 +780,120 @@ def game_loop(args):
     pygame.font.init()
     world = None
 
+    record = False
+
     try:
         client = carla.Client(args.host, args.port)
-        client.load_world('Town05')
         client.set_timeout(2.0)
+        sim_world = client.load_world('Town05')
+
+        settings = sim_world.get_settings()
+        settings.synchronous_mode = True
+        settings.fixed_delta_seconds = 0.025
+        sim_world.apply_settings(settings)
+        client.reload_world(False)
 
         display = pygame.display.set_mode(
             (args.width, args.height),
             pygame.HWSURFACE | pygame.DOUBLEBUF)
 
         hud = HUD(args.width, args.height)
-        world = World(client.get_world(), hud, args.filter)
+        world = World(sim_world, hud, args.filter)
         controller = DualControl(world, args.autopilot)
 
-        # Spawn a walker crossing from (-259,10) to (-260,-12)
-        walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
-        walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
-        walker = world.world.spawn_actor(walker_bp, walker_transform)
-        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.1)
-        walker.apply_control(walker_control)
+        # check if argparser has --record option
+        if args.record:
+            record = True
 
+        if record:
+            # Open a csv file to write the trajectory data
+            with open('trajectory1.csv', mode='w') as trajectory_file_1:
+                trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                trajectory_writer_1.writerow(['x', 'y', 'yaw', 'speed_x', 'speed_y', 'time'])
+
+            with open('trajectory2.csv', mode='w') as trajectory_file_2:
+                trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                trajectory_writer_2.writerow(['x', 'y', 'yaw', 'speed_x', 'speed_y', 'time'])
+            
+            onTrajectory1 = False
+            onTrajectory2 = False
+            
+            walker_1 = None
+            walker_2 = None
 
         clock = pygame.time.Clock()
         while True:
-            clock.tick_busy_loop(60)
+            clock.tick_busy_loop(40)
+            world.world.tick()
             if controller.parse_events(world, clock):
                 return
             world.tick(clock)
             world.render(display)
             pygame.display.flip()
 
+            if record: 
+                # Get current vehicle location
+                vehicle_location = world.player.get_location()
+                # Get current vehicle velocity
+                vehicle_velocity = world.player.get_velocity()
+
+                # If distance to (-234, -84.5) is less than 6m, then spawn another walker going from (-139,-98) to (-139, 77)
+                if carla.Location(x=-234, y=-84.5, z=0.2).distance(vehicle_location) < 6 and onTrajectory2 == False:
+                    walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
+                    walker_transform = carla.Transform(carla.Location(x=-139, y=-98, z=0.4), carla.Rotation(yaw=180))
+                    walker_2 = world.world.spawn_actor(walker_bp, walker_transform)
+                    walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=1, z=0), speed=0.9)
+                    walker_2.apply_control(walker_control)
+
+                    # delete walker 1
+                    walker_1.destroy() if walker_1 is not None else None
+
+                    onTrajectory2 = True
+                    onTrajectory1 = False
+
+                # If distance to (-143, -4) is less than 6m, then spawn another walker going from (-259,10) to (-260,-12)
+                if carla.Location(x=-143, y=-4, z=0.2).distance(vehicle_location) < 6 and onTrajectory1 == False:
+                    walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
+                    walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
+                    walker_1 = world.world.spawn_actor(walker_bp, walker_transform)
+                    walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=0.9)
+                    walker_1.apply_control(walker_control)
+
+                    # delete walker 2
+                    walker_2.destroy() if walker_2 is not None else None
+
+                    onTrajectory1 = True
+                    onTrajectory2 = False
+
+                # Write the trajectory data to the csv file
+                if onTrajectory1:
+                    with open('trajectory1.csv', mode='a') as trajectory_file_1:
+                        trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        trajectory_writer_1.writerow([vehicle_location.x, 
+                                                    vehicle_location.y, 
+                                                    world.player.get_transform().rotation.yaw, 
+                                                    vehicle_velocity.x, vehicle_velocity.y, 
+                                                    world.world.get_snapshot().timestamp.elapsed_seconds])
+                        
+                if onTrajectory2:
+                    with open('trajectory2.csv', mode='a') as trajectory_file_2:
+                        trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        trajectory_writer_2.writerow([vehicle_location.x, 
+                                                    vehicle_location.y, 
+                                                    world.player.get_transform().rotation.yaw, 
+                                                    vehicle_velocity.x, vehicle_velocity.y, 
+                                                    world.world.get_snapshot().timestamp.elapsed_seconds])
+
     finally:
+        if record:
+            # Add --- to separate the trajectory data
+            with open('trajectory1.csv', mode='a') as trajectory_file_1:
+                trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                trajectory_writer_1.writerow(['---', '---', '---', '---', '---', '---'])
+            
+            with open('trajectory2.csv', mode='a') as trajectory_file_2:
+                trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                trajectory_writer_2.writerow(['---', '---', '---', '---', '---', '---'])
 
         if world is not None:
             world.destroy()
@@ -855,6 +939,10 @@ def main():
         metavar='PATTERN',
         default='vehicle.*',
         help='actor filter (default: "vehicle.*")')
+    argparser.add_argument(
+        '--record',
+        action='store_true',
+        help='record the simulation to disk')
     args = argparser.parse_args()
 
     args.width, args.height = [int(x) for x in args.res.split('x')]
