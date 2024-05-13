@@ -165,7 +165,7 @@ def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
         line2.set_ydata(y_ped[:i])
         return line, line2
 
-    ani = animation.FuncAnimation(fig, animate, frames=len(t), interval=100, repeat=False)
+    ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
     plt.show()
     return ani
 
@@ -178,6 +178,21 @@ def plot_var(stl_milp, var: str, sampling_time):
     ax.plot(t, stl_var, '-r', label=var)
     ax.grid()
     ax.legend(prop={'size': 10})
+    fig_var.tight_layout()
+    plt.show()
+
+def plot_multi_vars(stl_milp, var_list: list, sampling_time):
+    t = [k * sampling_time for k in stl_milp.variables[var_list[0]].keys()]
+
+    fig_var, axs = plt.subplots(len(var_list), 1, figsize=(5, 8))
+    fig_var.suptitle('STL-Control Synthesis')
+
+    for i, var in enumerate(var_list):
+        stl_var = [var.x for var in stl_milp.variables[var].values()]
+        axs[i].set_title(f'{var} vs time')
+        axs[i].plot(t, stl_var, '-r', label=var)
+        axs[i].grid()
+        axs[i].legend(prop={'size': 10})
     fig_var.tight_layout()
     plt.show()
 
