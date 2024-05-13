@@ -770,6 +770,25 @@ class CameraManager(object):
             image.save_to_disk('_out/%08d' % image.frame)
 
 
+def start_csv(filename):
+    if os.path.exists(filename):
+        i = 0
+        while os.path.exists(filename):
+            i += 1
+            filename_parts = filename.split('.')
+            # check if filename has a _1, _2 already
+            if filename_parts[-2][-2] == '_':
+                filename_parts[-2] = filename_parts[-2][:-2] + f'_{i}'
+            else:
+                filename_parts[-2] = filename_parts[-2] + f'_{i}'
+            filename = '.'.join(filename_parts)
+
+    with open(filename, mode='w') as trajectory_file:
+        trajectory_writer = csv.writer(trajectory_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        trajectory_writer.writerow(['x', 'y', 'speed', 'yaw', 'time'])
+
+    return filename
+
 # ==============================================================================
 # -- game_loop() ---------------------------------------------------------------
 # ==============================================================================
@@ -806,17 +825,11 @@ def game_loop(args):
             record = True
 
         if record:
-            # Open a csv file to write the trajectory data
-            with open('trajectory1.csv', mode='w') as trajectory_file_1:
-                trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                trajectory_writer_1.writerow(['x', 'y', 'yaw', 'speed_x', 'speed_y', 'time'])
-
-            with open('trajectory2.csv', mode='w') as trajectory_file_2:
-                trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                trajectory_writer_2.writerow(['x', 'y', 'yaw', 'speed_x', 'speed_y', 'time'])
+            filename_a = 'demonstrations/trajectory-a.csv'
+            filename_b = 'demonstrations/trajectory-b.csv'
             
-            onTrajectory1 = False
-            onTrajectory2 = False
+            onTrajectory_a = False
+            onTrajectory_b = False
             
             walker_1 = None
             walker_2 = None
@@ -836,9 +849,10 @@ def game_loop(args):
                 vehicle_location = world.player.get_location()
                 # Get current vehicle velocity
                 vehicle_velocity = world.player.get_velocity()
+                velocity_mag = math.sqrt(vehicle_velocity.x**2 + vehicle_velocity.y**2)
 
                 # If distance to (-234, -84.5) is less than 6m, then spawn another walker going from (-139,-98) to (-139, 77)
-                if carla.Location(x=-234, y=-84.5, z=0.2).distance(vehicle_location) < 6 and onTrajectory2 == False:
+                if carla.Location(x=-234, y=-84.5, z=0.2).distance(vehicle_location) < 6 and onTrajectory_b == False:
                     walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
                     walker_transform = carla.Transform(carla.Location(x=-139, y=-98, z=0.4), carla.Rotation(yaw=180))
                     walker_2 = world.world.spawn_actor(walker_bp, walker_transform)
@@ -848,11 +862,13 @@ def game_loop(args):
                     # delete walker 1
                     walker_1.destroy() if walker_1 is not None else None
 
-                    onTrajectory2 = True
-                    onTrajectory1 = False
+                    onTrajectory_b = True
+                    onTrajectory_a = False
+
+                    filename_b = start_csv(filename_b)
 
                 # If distance to (-143, -4) is less than 6m, then spawn another walker going from (-259,10) to (-260,-12)
-                if carla.Location(x=-143, y=-4, z=0.2).distance(vehicle_location) < 6 and onTrajectory1 == False:
+                if carla.Location(x=-143, y=-4, z=0.2).distance(vehicle_location) < 6 and onTrajectory_a == False:
                     walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
                     walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
                     walker_1 = world.world.spawn_actor(walker_bp, walker_transform)
@@ -862,39 +878,32 @@ def game_loop(args):
                     # delete walker 2
                     walker_2.destroy() if walker_2 is not None else None
 
-                    onTrajectory1 = True
-                    onTrajectory2 = False
+                    onTrajectory_a = True
+                    onTrajectory_b = False
+
+                    filename_a = start_csv(filename_a)
 
                 # Write the trajectory data to the csv file
-                if onTrajectory1:
-                    with open('trajectory1.csv', mode='a') as trajectory_file_1:
-                        trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                        trajectory_writer_1.writerow([vehicle_location.x, 
+                if onTrajectory_a:
+                    with open(filename_a, mode='a') as trajectory_file_a:
+                        trajectory_writer_a = csv.writer(trajectory_file_a, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        trajectory_writer_a.writerow([vehicle_location.x, 
                                                     vehicle_location.y, 
+                                                    velocity_mag,
                                                     world.player.get_transform().rotation.yaw, 
-                                                    vehicle_velocity.x, vehicle_velocity.y, 
-                                                    world.world.get_snapshot().timestamp.elapsed_seconds])
+                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds, 3)])
+                                                    
                         
-                if onTrajectory2:
-                    with open('trajectory2.csv', mode='a') as trajectory_file_2:
-                        trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                        trajectory_writer_2.writerow([vehicle_location.x, 
+                if onTrajectory_b:
+                    with open(filename_b, mode='a') as trajectory_file_b:
+                        trajectory_writer_b = csv.writer(trajectory_file_b, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                        trajectory_writer_b.writerow([vehicle_location.x, 
                                                     vehicle_location.y, 
-                                                    world.player.get_transform().rotation.yaw, 
-                                                    vehicle_velocity.x, vehicle_velocity.y, 
-                                                    world.world.get_snapshot().timestamp.elapsed_seconds])
+                                                    velocity_mag,
+                                                    world.player.get_transform().rotation.yaw,
+                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds)])
 
     finally:
-        if record:
-            # Add --- to separate the trajectory data
-            with open('trajectory1.csv', mode='a') as trajectory_file_1:
-                trajectory_writer_1 = csv.writer(trajectory_file_1, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                trajectory_writer_1.writerow(['---', '---', '---', '---', '---', '---'])
-            
-            with open('trajectory2.csv', mode='a') as trajectory_file_2:
-                trajectory_writer_2 = csv.writer(trajectory_file_2, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                trajectory_writer_2.writerow(['---', '---', '---', '---', '---', '---'])
-
         if world is not None:
             world.destroy()
 
