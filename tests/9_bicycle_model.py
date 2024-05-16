@@ -31,7 +31,8 @@ def wstl_synthesis_control(
                 sp : dict,
                 alpha: np.ndarray, 
                 beta : np.ndarray,
-                zeta : float):
+                zeta : np.ndarray,
+                lambd : float):
     """
     Synthesize a controller for a given wSTL formula and a linear system
 
@@ -194,6 +195,8 @@ def wstl_synthesis_control(
     wstl_milp.variables['u_a_abs'] = u_a_abs
     wstl_milp.variables['u_delta_abs'] = u_delta_abs
     wstl_milp.variables['j_abs'] = j_abs
+    wstl_milp.variables['sr'] = sr
+    wstl_milp.variables['sr_abs'] = sr_abs
 
     # system constraints x[k+1] = A X[k]+ B U[k]
     for k in range(time_horizon-1):
@@ -267,7 +270,7 @@ def wstl_synthesis_control(
 
     wstl_milp.model.addConstr(rho_formula >= 0)
     
-    wstl_milp.model.setObjective(rho_formula - state_cost - control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
+    wstl_milp.model.setObjective(lambd*rho_formula - state_cost - control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
 
     # Solve the problem with gurobi 
     wstl_milp.model.optimize()
@@ -283,7 +286,7 @@ if __name__ == '__main__':
     # Define wSTL specification
     def w1_f(k):
         if k < horizon/2:
-            return 0.1
+            return 0.05
         return 1.0
     weights = {"w1" : lambda k : w1_f(k), 
                "w2" : lambda k : 1.0, 
@@ -329,14 +332,15 @@ if __name__ == '__main__':
             return [self.x_ped, self.y_ped] 
     ped = pedestrian()
 
-    alpha = np.array([0.001, 0.001, 0.01, 0.001])
-    beta = np.array([0.0001, 0.0001])
-    zeta =  np.array([0.001, 0.001])
+    alpha = np.array([0.001, 0.005, 0.05, 0.001])
+    beta = np.array([0.0001, 0.005])
+    zeta =  np.array([0.01, 0.0001])
+    lambd = 10
 
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
     stl_milp, rho_formula, z = wstl_synthesis_control(phi, weights, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, x_f, alpha, beta, zeta)
+                                    control_ub, x_0, x_f, alpha, beta, zeta, lambd)
     stl_end = time.time()
     stl_time = stl_end - stl_start
 
