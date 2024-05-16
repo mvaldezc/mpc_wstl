@@ -250,7 +250,6 @@ def visualize_demonstration(px, py, x_ped, y_ped, t):
     ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
     ax.text(x_ped[-1], y_ped[-1], f'({x_ped[-1]:.2f},{y_ped[-1]:.2f})', fontsize=8)
 
-
     def animate(i):
         line.set_xdata(px[:i])
         line.set_ydata(py[:i])

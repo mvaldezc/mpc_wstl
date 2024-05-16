@@ -79,6 +79,7 @@ def wstl_synthesis_control(
     u_a = dict()
     u_delta = dict()
     j = dict()
+    sr = dict()
 
     # Define variables for pedestrian
     x_ped = dict()
@@ -99,6 +100,7 @@ def wstl_synthesis_control(
     u_a_abs = dict() # define magnitude of control inputs
     u_delta_abs = dict()
     j_abs = dict() # define magnitude of jerk
+    sr_abs = dict() # define magnitude of steering rate
 
     # Couple predicate variables with constraint variables
     for k in range(time_horizon):  
@@ -129,9 +131,14 @@ def wstl_synthesis_control(
             name = "u_delta_abs_{}".format(k)
             u_delta_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
             name = "j_{}".format(k)
-            j[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, lb=-10, ub=10, name=name)
+            
+            j[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, lb=control_lb['j'], ub=control_ub['j'], name=name)
             name = "j_abs_{}".format(k)
             j_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
+            name = "sr_{}".format(k)
+            sr[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, lb=control_lb['sr'], ub=control_ub['sr'], name=name)
+            name = "sr_abs_{}".format(k)
+            sr_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
 
         # Error variables
         name = "delta_px_{}".format(k)
@@ -209,6 +216,8 @@ def wstl_synthesis_control(
     # Jerk constraints
     wstl_milp.model.addConstr(j[0] == (u_a[0] - 0)/T)
     wstl_milp.model.addConstrs(j[k] == (u_a[k] - u_a[k-1])/T for k in range(1, time_horizon-1))
+    wstl_milp.model.addConstr(sr[0] == (u_delta[0] - 0)/T)
+    wstl_milp.model.addConstrs(sr[k] == (u_delta[k] - u_delta[k-1])/T for k in range(1, time_horizon-1))
 
     # Initial conditions as additional constraints
     wstl_milp.model.addConstr(px[0] == x_0['px'])
@@ -252,11 +261,13 @@ def wstl_synthesis_control(
 
     # Jerk magnitude cost
     wstl_milp.model.addConstrs(j_abs[k] == grb.abs_(j[k]) for k in range(time_horizon-1))
-    jerk_cost = sum(zeta*j_abs[k] for k in range(time_horizon-1))
+    jerk_cost = sum(zeta[0]*j_abs[k] for k in range(time_horizon-1))
+    wstl_milp.model.addConstrs(sr_abs[k] == grb.abs_(sr[k]) for k in range(time_horizon-1))
+    steering_cost = sum(zeta[1]*sr_abs[k] for k in range(time_horizon-1))
 
     wstl_milp.model.addConstr(rho_formula >= 0)
     
-    wstl_milp.model.setObjective(rho_formula - state_cost - control_cost - jerk_cost, grb.GRB.MAXIMIZE)
+    wstl_milp.model.setObjective(rho_formula - state_cost - control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
 
     # Solve the problem with gurobi 
     wstl_milp.model.optimize()
@@ -279,21 +290,16 @@ if __name__ == '__main__':
                "p1" : lambda k : [0.5, 1.0][k],
                "p2" : lambda k : [1.0, 1.0][k],
                }
-    # weights = {"w1" : lambda k : w1[k], 
-    #            "w2" : lambda k : w2[k], 
-    #            "p1" : lambda k : p1[k],
-    #            "p2" : lambda k : p2[k],
-    #            }
 
     phi_rule = f"G[0,{horizon}]^w1 (distance >= 2)"
-    phi_confort = f"G[0,{horizon-1}]^w2 &&^p2(u_a <= 10, jx <= 30)"
+    phi_confort = f"G[0,{horizon-1}]^w2 &&^p2(u_a <= 10, j <= 30)"
     phi = f"&&^p1 ({phi_rule}, {phi_confort})"
 
     # Define the bounds for the state and control inputs
-    vars_lb = {'px': -5, 'py': 0, 'v': -40, 'theta': -20}
-    vars_ub = {'px': 125, 'py': 5, 'v': 40, 'theta': 20}
-    control_lb = {'u_a': -2, 'u_delta': -5}
-    control_ub = {'u_a': 15, 'u_delta': 5}
+    vars_lb = {'px': -5, 'py': 0, 'v': -40, 'theta': -1}
+    vars_ub = {'px': 125, 'py': 5, 'v': 40, 'theta': 1}
+    control_lb = {'u_a': -2, 'u_delta': -5, 'j': -40, 'sr': -1}
+    control_ub = {'u_a': 15, 'u_delta': 5, 'j': 40, 'sr': 1}
 
     # Define the initial and final conditions
     x_0 = {'px': 0, 'py': 2.5, 'v': 0, 'theta': 0}
@@ -324,8 +330,8 @@ if __name__ == '__main__':
     ped = pedestrian()
 
     alpha = np.array([0.001, 0.001, 0.01, 0.001])
-    beta = np.array([0.001, 0.01])
-    zeta = 0.01
+    beta = np.array([0.0001, 0.0001])
+    zeta =  np.array([0.001, 0.001])
 
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
