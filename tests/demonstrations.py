@@ -5,14 +5,16 @@ def read_demonstration(filename : str):
     data = np.genfromtxt(filename, delimiter=',')[1:,:]
     x = data[:,0]
     y = data[:,1]
-    th = data[:,2]
-    v = data[:,3]
+    v = data[:,2]
+    th = data[:,3]
     t = data[:,4]
 
     # coordinate transformations (-143, -4) is (0,2.5), (-144, -4) is (1,2.5)
     x = -x - 143
     y = y + 6.5
     t = t - t[0]
+    th = (th+180)*np.pi/180 # shift -180 to 0 and convert to radians
+    th = np.arctan2(np.sin(th), np.cos(th)) # wrap angle to [-pi, pi] 
 
     # find zero 
     len = x.shape[0]

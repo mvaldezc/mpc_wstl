@@ -260,3 +260,56 @@ def visualize_demonstration(px, py, x_ped, y_ped, t):
     ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
     plt.show()
     return ani
+
+def visualize_demo_and_stl(px_demo, py_demo, stl_milp, sampling_time):
+    t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
+
+    px = [var.x for var in stl_milp.variables['px'].values()]
+    py = [var.x for var in stl_milp.variables['py'].values()]
+    x_ped = [var.x for var in stl_milp.variables['x_ped'].values()]
+    y_ped = [var.x for var in stl_milp.variables['y_ped'].values()]
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+    fig.suptitle('STL-Control Synthesis')
+    horizon = t[-1]/sampling_time
+    ax.set_title(f'x vs y, horizon: {int(horizon)}, robustness: {stl_milp.variables[stl_milp.formula][0][1].x:.2f}')
+    ax.grid()
+    ax.xaxis.set_tick_params(labelsize=12)
+    ax.tick_params(labelsize=10)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    # plot a green square at setpoint
+    ax.plot(px[-1], py[-1], 'ms', label=r'setpoint')
+    # plot a black line at sidewalk
+    ax.axhline(y=0, color='k', linestyle='-')
+    ax.axhline(y=1, color='k', linestyle='-')
+    ax.axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=7.95, color='k', linestyle='-')
+    ax.axhline(y=8.05, color='k', linestyle='-')
+    ax.axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=15, color='k', linestyle='-')
+    ax.axhline(y=16, color='k', linestyle='-')
+
+    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7, alpha = 0.6)
+    line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7, alpha = 0.6)
+    line3, = ax.plot(px_demo, py_demo, '-g', label=r'demonstration',linewidth=3, marker='s', markersize=7, alpha = 0.4)
+
+    # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
+    ax.plot(x_ped[0], y_ped[0], 'bo')
+    ax.plot(x_ped[-1], y_ped[-1], 'bo')
+    ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
+    ax.text(x_ped[-1], y_ped[-1], f'({x_ped[-1]:.2f},{y_ped[-1]:.2f})', fontsize=8)
+
+    def animate(i):
+        line.set_xdata(px[:i])
+        line.set_ydata(py[:i])
+        line2.set_xdata(x_ped[:i])
+        line2.set_ydata(y_ped[:i])
+        line3.set_xdata(px_demo[:i])
+        line3.set_ydata(py_demo[:i])
+        return line, line2, line3
+
+    ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
+    plt.legend()
+    plt.show()
+    return ani

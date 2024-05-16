@@ -1,6 +1,7 @@
 from antlr4 import InputStream, CommonTokenStream
 import time
-from visualize import visualize_animation, plot_multi_vars
+from visualize import visualize_demo_and_stl, plot_multi_vars
+from demonstrations import read_demonstration
 import gurobipy as grb
 import sys
 import numpy as np
@@ -28,7 +29,7 @@ def wstl_synthesis_control(
                 control_lb : dict, 
                 control_ub : dict,
                 x_0 : dict,
-                sp : dict,
+                demo : dict,
                 alpha: np.ndarray, 
                 beta : np.ndarray,
                 zeta : np.ndarray,
@@ -50,7 +51,7 @@ def wstl_synthesis_control(
     control_lb : lower bound for the control inputs
     control_ub : upper bound for the control inputs
     x_0 : initial condition for the state variables
-    setpoint : setpoint for the state variables
+    demo : demonstration
     alpha : weight for the state cost
     betax : weight for the control cost
     zeta : weight for the jerk cost
@@ -231,10 +232,10 @@ def wstl_synthesis_control(
     wstl_milp.model.addConstr(theta[0] == x_0['theta'])
 
     # Setpoint constraints
-    wstl_milp.model.addConstr(px[time_horizon-1] == sp['px'])
-    wstl_milp.model.addConstr(py[time_horizon-1] == sp['py'])
-    wstl_milp.model.addConstr(v[time_horizon-1] == sp['v'])
-    wstl_milp.model.addConstr(theta[time_horizon-1] == sp['theta'])
+    wstl_milp.model.addConstr(px[time_horizon-1] == 120)#demo['px'][time_horizon-1])
+    wstl_milp.model.addConstr(py[time_horizon-1] == 2.5)#demo['py'][time_horizon-1])
+    # wstl_milp.model.addConstr(v[time_horizon-1] == 0)
+    # wstl_milp.model.addConstr(theta[time_horizon-1] == 0)
 
     # Pedestrian constraints
     for k in range(time_horizon):
@@ -248,10 +249,10 @@ def wstl_synthesis_control(
     z_formula, rho_formula = wstl_milp.translate(satisfaction=True)
 
     # State error cost
-    wstl_milp.model.addConstrs(delta_px[k] == sp['px'] - px[k] for k in range(time_horizon))
-    wstl_milp.model.addConstrs(delta_py[k] == sp['py'] - py[k] for k in range(time_horizon))
-    wstl_milp.model.addConstrs( delta_v[k] == sp['v'] -  v[k] for k in range(time_horizon))
-    wstl_milp.model.addConstrs(delta_theta[k] == sp['theta'] - theta[k] for k in range(time_horizon))
+    wstl_milp.model.addConstrs(delta_px[k] == demo['px'][k] - px[k] for k in range(time_horizon))
+    wstl_milp.model.addConstrs(delta_py[k] == demo['py'][k] - py[k] for k in range(time_horizon))
+    wstl_milp.model.addConstrs(delta_v[k] == demo['v'][k] -  v[k] for k in range(time_horizon))
+    wstl_milp.model.addConstrs(delta_theta[k] == demo['th'][k] - theta[k] for k in range(time_horizon))
     wstl_milp.model.addConstrs(delta_px_abs[k] == grb.abs_(delta_px[k]) for k in range(time_horizon))
     wstl_milp.model.addConstrs(delta_py_abs[k] == grb.abs_(delta_py[k]) for k in range(time_horizon))
     wstl_milp.model.addConstrs(delta_v_abs[k] == grb.abs_(delta_v[k]) for k in range(time_horizon))
@@ -281,9 +282,13 @@ def wstl_synthesis_control(
 
 if __name__ == '__main__':  
 
+    # Read demonstration
+    x_demo, y_demo, v_demo, th_demo, t_demo = read_demonstration('../carla_settings/demonstrations/trajectory-a_5.csv')
+    demo = {'px': x_demo.squeeze(), 'py': y_demo.squeeze(), 'v': v_demo.squeeze(), 'th': th_demo.squeeze()}
+
+    horizon = x_demo.shape[0]-1
+
     T = 0.2 # sampling time
-    time_length = 18 #+ 2*np.random.rand()
-    horizon = int(time_length/T)+1
 
     # Define wSTL specification
     def w1_f(k):
@@ -311,7 +316,7 @@ if __name__ == '__main__':
     x_f = {'px': 120, 'py': 2.5, 'v': 0, 'theta': 0}
 
     # Linearization point
-    x0 = torch.tensor([0, 0, 0.1, 0]).reshape(1,4)
+    x0 = torch.tensor([0, 0, 0.1, 0]).reshape(1,4) # x, y doesn't matter for linearization
     u0 = torch.tensor([0, 0]).reshape(1,2)
 
     # Define the matrices for linear system 
@@ -327,14 +332,14 @@ if __name__ == '__main__':
             self.x_ped = 116.0 #+ 5*np.random.rand()
             self.y_ped = 17.0
         def __call__(self, t):
-            if t <= 15: #16.45:
-                vel = 1.2#1.1
+            if t <= 20:
+                vel = 0.9
                 self.x_ped = self.x_ped #+ 0.1*np.random.randn(1)
                 self.y_ped = 17.0 - vel*t
             return [self.x_ped, self.y_ped] 
     ped = pedestrian()
 
-    alpha = np.array([0.001, 0.005, 0.05, 0.001])
+    alpha = np.array([0.001, 0.005, 0.05, 0.001]) #np.array([0.5, 0.05, 0.5, 0.01])
     beta = np.array([0.0001, 0.005])
     zeta =  np.array([0.01, 0.0001])
     lambd = 10
@@ -342,7 +347,7 @@ if __name__ == '__main__':
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
     stl_milp, rho_formula, z = wstl_synthesis_control(phi, weights, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, x_f, alpha, beta, zeta, lambd)
+                                    control_ub, x_0, demo, alpha, beta, zeta, lambd)
     stl_end = time.time()
     stl_time = stl_end - stl_start
 
@@ -354,15 +359,17 @@ if __name__ == '__main__':
     # Visualize the results
     plot_multi_vars(stl_milp, ['px', 'py', 'v', 'theta'], T)
     plot_multi_vars(stl_milp, ['u_a', 'u_delta'], T)
-    ani = visualize_animation(stl_milp, T, carla=True)
+    ani = visualize_demo_and_stl(x_demo, y_demo, stl_milp, T)
     # save_vid(ani, "anim/carla.gif")
 
     # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
     x_traj = np.zeros(horizon)
     y_traj = np.zeros(horizon)
     v_traj = np.zeros(horizon)
+    th_traj = np.zeros(horizon)
     for i in range(horizon):
         x_traj[i] = stl_milp.model.getVarByName('px_' + str(i)).x
         y_traj[i] = stl_milp.model.getVarByName('py_' + str(i)).x
         v_traj[i] = stl_milp.model.getVarByName('v_' + str(i)).x
+        th_traj[i] = stl_milp.model.getVarByName('theta_' + str(i)).x
     #np.savetxt('../carla_settings/preference_synthesis/carla_traj.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')
