@@ -31,6 +31,6 @@ def read_demonstration(filename : str):
     y = y[zero_idx:][::8]
     th = th[zero_idx:][::8]
     v = v[zero_idx:][::8]
-    t = t[:len][::8]
+    t = t[:len - zero_idx][::8]
 
-    return x, y, th, v, t
+    return x, y, v, th, t

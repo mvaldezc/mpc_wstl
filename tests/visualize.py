@@ -223,7 +223,7 @@ def visualize_demonstration(px, py, x_ped, y_ped, t):
 
     fig, ax = plt.subplots(1, 1, figsize=(12, 7))
     fig.suptitle('STL-Control Synthesis')
-    ax.set_title(f'x vs y, horizon: {int(horizon)}')
+    ax.set_title(f'x vs y, horizon: {int(horizon)}, Time: {t[-1]:.2f}')
     ax.grid()
     ax.xaxis.set_tick_params(labelsize=12)
     ax.tick_params(labelsize=10)
