@@ -16,7 +16,7 @@ class pedestrian:
 ped = pedestrian()
 
 # Read demonstration
-x, y, v, th, t = read_demonstration('../carla_settings/demonstrations/trajectory-a_6.csv')
+x, y, v, th, t = read_demonstration('../carla_settings/demonstrations/trajectory-a.csv')
 
 # rollout pedestrian dynamics
 pedestrian_position = np.array([ped(t[i]) for i in range(t.shape[0])])
