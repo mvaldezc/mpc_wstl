@@ -883,7 +883,7 @@ def game_loop(args):
 
                     filename_a = start_csv(filename_a)
 
-                if carla.Location(x=-265, y=-4, z=0.2).distance(vehicle_location) < 6 and onTrajectory_a == True:
+                if vehicle_location.x < -263:
                     onTrajectory_a = False
                 
                 if carla.Location(x=-138, y=-84.5, z=0.2).distance(vehicle_location) < 4 and onTrajectory_b == True:

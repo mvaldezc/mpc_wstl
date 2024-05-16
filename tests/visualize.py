@@ -6,8 +6,8 @@ import os
 def visualize(stl_milp, sampling_time):
     t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
     
-    stl_px = [var.x for var in stl_milp.variables['px'].values()]
-    stl_py = [var.x for var in stl_milp.variables['py'].values()]
+    px = [var.x for var in stl_milp.variables['px'].values()]
+    py = [var.x for var in stl_milp.variables['py'].values()]
     stl_vx = [var.x for var in stl_milp.variables['vx'].values()]
     stl_vy = [var.x for var in stl_milp.variables['vy'].values()]
     stl_u_ax = [var.x for var in stl_milp.variables['u_ax'].values()]
@@ -21,7 +21,7 @@ def visualize(stl_milp, sampling_time):
     fig, axs = plt.subplots(4, 2, figsize=(10, 7))
     fig.suptitle('STL-Control Synthesis')
 
-    axs[0][0].plot(t, stl_px, '-r', label=r'x', 
+    axs[0][0].plot(t, px, '-r', label=r'x', 
                    linewidth=3, marker='s', markersize=7)     
     axs[0][0].plot(t, x_ped, '-b', label=r'x_ped', 
                    linewidth=3, marker='s', markersize=7)        
@@ -31,7 +31,7 @@ def visualize(stl_milp, sampling_time):
     axs[0][0].xaxis.set_tick_params(labelsize=12)
     axs[0][0].tick_params(labelsize=10)
 
-    axs[0][1].plot(t, stl_py, '-r', label=r'y', 
+    axs[0][1].plot(t, py, '-r', label=r'y', 
                    linewidth=3, marker='s', markersize=7)
     axs[0][1].plot(t, y_ped, '-b', label=r'y_ped',
                      linewidth=3, marker='s', markersize=7)
@@ -88,15 +88,15 @@ def visualize2d(stl_milp, sampling_time):
     # create 2d plot of the pedestrian and the car
     t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
 
-    stl_px = [var.x for var in stl_milp.variables['px'].values()]
-    stl_py = [var.x for var in stl_milp.variables['py'].values()]
+    px = [var.x for var in stl_milp.variables['px'].values()]
+    py = [var.x for var in stl_milp.variables['py'].values()]
     x_ped = [var.x for var in stl_milp.variables['x_ped'].values()]
     y_ped = [var.x for var in stl_milp.variables['y_ped'].values()]
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 7))
     fig.suptitle('STL-Control Synthesis')
 
-    ax.plot(stl_px, stl_py, '-r', label=r'car',
+    ax.plot(px, py, '-r', label=r'car',
             linewidth=3, marker='s', markersize=7)
     ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',
             linewidth=3, marker='s', markersize=7)
@@ -113,8 +113,8 @@ def visualize2d(stl_milp, sampling_time):
 def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
     t = [k * sampling_time for k in stl_milp.variables['px'].keys()]
 
-    stl_px = [var.x for var in stl_milp.variables['px'].values()]
-    stl_py = [var.x for var in stl_milp.variables['py'].values()]
+    px = [var.x for var in stl_milp.variables['px'].values()]
+    py = [var.x for var in stl_milp.variables['py'].values()]
     x_ped = [var.x for var in stl_milp.variables['x_ped'].values()]
     y_ped = [var.x for var in stl_milp.variables['y_ped'].values()]
 
@@ -128,7 +128,7 @@ def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     # plot a green square at setpoint
-    ax.plot(stl_px[-1], stl_py[-1], 'gs', label=r'setpoint')
+    ax.plot(px[-1], py[-1], 'gs', label=r'setpoint')
     # plot a black line at sidewalk
     if not carla:
         ax.axhline(y=0, color='k', linestyle='-', label='sidewalk')
@@ -144,7 +144,7 @@ def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
         ax.axhline(y=15, color='k', linestyle='-')
         ax.axhline(y=16, color='k', linestyle='-')
 
-    line, = ax.plot(stl_px, stl_py, '-r', label=r'car', linewidth=3, marker='s', markersize=7)
+    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7)
     line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7)
 
     # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
@@ -159,8 +159,8 @@ def visualize_animation(stl_milp, sampling_time, weight_list=None, carla=False):
                 transform=ax.transAxes, fontsize=6, verticalalignment='top')
 
     def animate(i):
-        line.set_xdata(stl_px[:i])
-        line.set_ydata(stl_py[:i])
+        line.set_xdata(px[:i])
+        line.set_ydata(py[:i])
         line2.set_xdata(x_ped[:i])
         line2.set_ydata(y_ped[:i])
         return line, line2
@@ -214,3 +214,50 @@ def save_vid(ani, filename):
     ani.save(filename, writer='Pillow', fps=10)
     print(f'Video saved as {filename}')
     plt.show()
+
+
+# Create an animation that advances with time of the trajectory of the car and the pedestrian
+def visualize_demonstration(px, py, x_ped, y_ped, t):
+
+    horizon = t.shape[0]
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+    fig.suptitle('STL-Control Synthesis')
+    ax.set_title(f'x vs y, horizon: {int(horizon)}')
+    ax.grid()
+    ax.xaxis.set_tick_params(labelsize=12)
+    ax.tick_params(labelsize=10)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    # plot a green square at setpoint
+    ax.plot(px[-1], py[-1], 'gs', label=r'setpoint')
+    # plot a black line at sidewalk
+    ax.axhline(y=0, color='k', linestyle='-')
+    ax.axhline(y=1, color='k', linestyle='-')
+    ax.axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=7.95, color='k', linestyle='-')
+    ax.axhline(y=8.05, color='k', linestyle='-')
+    ax.axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=15, color='k', linestyle='-')
+    ax.axhline(y=16, color='k', linestyle='-')
+
+    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7)
+    line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7)
+
+    # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
+    ax.plot(x_ped[0], y_ped[0], 'bo', label='initial pedestrian')
+    ax.plot(x_ped[-1], y_ped[-1], 'bo', label='final pedestrian')
+    ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
+    ax.text(x_ped[-1], y_ped[-1], f'({x_ped[-1]:.2f},{y_ped[-1]:.2f})', fontsize=8)
+
+
+    def animate(i):
+        line.set_xdata(px[:i])
+        line.set_ydata(py[:i])
+        line2.set_xdata(x_ped[:i])
+        line2.set_ydata(y_ped[:i])
+        return line, line2
+
+    ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
+    plt.show()
+    return ani
