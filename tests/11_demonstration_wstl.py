@@ -1,6 +1,6 @@
 from antlr4 import InputStream, CommonTokenStream
 import time
-from visualize import visualize_demo_and_stl, plot_multi_vars
+from visualize import visualize_demo_and_stl, plot_multi_vars, save_vid, plot_multi_vars_mpc
 from demonstrations import read_demonstration
 import gurobipy as grb
 import sys
@@ -21,8 +21,8 @@ def wstl_synthesis_control(
                 weights : dict, 
                 pedestrian : Callable[[float], list],
                 f0: np.ndarray,
-                A : list,
-                B : list,
+                A : np.ndarray,
+                B : np.ndarray,
                 T : float,
                 vars_lb : dict,
                 vars_ub : dict,
@@ -134,8 +134,8 @@ def wstl_synthesis_control(
             u_a_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
             name = "u_delta_abs_{}".format(k)
             u_delta_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
+
             name = "j_{}".format(k)
-            
             j[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, lb=control_lb['j'], ub=control_ub['j'], name=name)
             name = "j_abs_{}".format(k)
             j_abs[k] = wstl_milp.model.addVar(vtype=grb.GRB.CONTINUOUS, name=name)
@@ -222,8 +222,8 @@ def wstl_synthesis_control(
     # Jerk constraints
     wstl_milp.model.addConstr(j[0] == (u_a[0] - 0)/T)
     wstl_milp.model.addConstrs(j[k] == (u_a[k] - u_a[k-1])/T for k in range(1, time_horizon-1))
-    wstl_milp.model.addConstr(sr[0] == (u_delta[0] - 0)/T)
-    wstl_milp.model.addConstrs(sr[k] == (u_delta[k] - u_delta[k-1])/T for k in range(1, time_horizon-1))
+    # wstl_milp.model.addConstr(sr[0] == (u_delta[0] - 0)/T)
+    # wstl_milp.model.addConstrs(sr[k] == (u_delta[k] - u_delta[k-1])/T for k in range(1, time_horizon-1))
 
     # Initial conditions as additional constraints
     wstl_milp.model.addConstr(px[0] == x_0['px'])
@@ -268,12 +268,12 @@ def wstl_synthesis_control(
     # Jerk magnitude cost
     wstl_milp.model.addConstrs(j_abs[k] == grb.abs_(j[k]) for k in range(time_horizon-1))
     jerk_cost = sum(zeta[0]*j_abs[k] for k in range(time_horizon-1))
-    wstl_milp.model.addConstrs(sr_abs[k] == grb.abs_(sr[k]) for k in range(time_horizon-1))
-    steering_cost = sum(zeta[1]*sr_abs[k] for k in range(time_horizon-1))
+    # wstl_milp.model.addConstrs(sr_abs[k] == grb.abs_(sr[k]) for k in range(time_horizon-1))
+    # steering_cost = sum(zeta[1]*sr_abs[k] for k in range(time_horizon-1))
 
     wstl_milp.model.addConstr(rho_formula >= 0)
     
-    wstl_milp.model.setObjective(lambd*rho_formula - state_cost - control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
+    wstl_milp.model.setObjective(lambd*rho_formula - state_cost , grb.GRB.MAXIMIZE)#- control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
 
     # Solve the problem with gurobi 
     wstl_milp.model.optimize()
@@ -300,30 +300,29 @@ if __name__ == '__main__':
                "p1" : lambda k : [0.5, 1.0][k],
                "p2" : lambda k : [1.0, 1.0][k],
                }
-
+    
     phi_rule = f"G[0,{horizon}]^w1 (distance >= 2)"
     phi_confort = f"G[0,{horizon-1}]^w2 &&^p2(u_a <= 10, j <= 30)"
     phi = f"&&^p1 ({phi_rule}, {phi_confort})"
 
     # Define the bounds for the state and control inputs
-    vars_lb = {'px': -5, 'py': 0, 'v': -40, 'theta': -1}
-    vars_ub = {'px': 125, 'py': 5, 'v': 40, 'theta': 1}
-    control_lb = {'u_a': -2, 'u_delta': -5, 'j': -40, 'sr': -1}
-    control_ub = {'u_a': 15, 'u_delta': 5, 'j': 40, 'sr': 1}
+    vars_lb = {'px': -5, 'py': 1, 'v': 0, 'theta': -np.pi}
+    vars_ub = {'px': 125, 'py': 6.5, 'v': 30, 'theta': np.pi}
+    control_lb = {'u_a': -10, 'u_delta': -1, 'j': -80, 'sr': -1}
+    control_ub = {'u_a': 15, 'u_delta': 1, 'j': 80, 'sr': 1}
 
     # Define the initial and final conditions
     x_0 = {'px': 0, 'py': 2.5, 'v': 0, 'theta': 0}
     x_f = {'px': 120, 'py': 2.5, 'v': 0, 'theta': 0}
 
     # Linearization point
-    x0 = torch.tensor([0, 0, 0.1, 0]).reshape(1,4) # x, y doesn't matter for linearization
+    x0 = torch.tensor([0, 0, 0.2, 0]).reshape(1,4) # x, y doesn't matter for linearization
     u0 = torch.tensor([0, 0]).reshape(1,2)
 
     # Define the matrices for linear system 
     model = BicycleModel(dt=T)
     Ad, Bd = model.discretize_dynamics(x0, u0)
-    Ad = Ad.detach().numpy()
-    Bd = Bd.detach().numpy()
+    Ad, Bd = Ad.detach().numpy(), Bd.detach().numpy()
     f0 = model.integrate_dynamics(x0, u0).detach().numpy().reshape(4)
 
     # Define the pedestrian model
@@ -337,12 +336,13 @@ if __name__ == '__main__':
                 self.x_ped = self.x_ped #+ 0.1*np.random.randn(1)
                 self.y_ped = 17.0 - vel*t
             return [self.x_ped, self.y_ped] 
+       
     ped = pedestrian()
 
-    alpha = np.array([0.001, 0.005, 0.05, 0.001]) #np.array([0.5, 0.05, 0.5, 0.01])
-    beta = np.array([0.0001, 0.005])
-    zeta =  np.array([0.01, 0.0001])
-    lambd = 10
+    alpha = np.array([0.2, 1.0, 0.001, 0.5])
+    beta = np.array([0.00, 0.00])
+    zeta =  np.array([0.00, 0.001])
+    lambd = 0.0
 
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
@@ -357,10 +357,16 @@ if __name__ == '__main__':
     print("z:", z.x)
 
     # Visualize the results
-    plot_multi_vars(stl_milp, ['px', 'py', 'v', 'theta'], T)
+    state_var_name = ['px', 'py', 'v', 'theta']
+    px = np.array([stl_milp.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
+    py = np.array([stl_milp.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
+    v = np.array([stl_milp.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
+    theta = np.array([stl_milp.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
+    state_var = np.vstack((px, py, v, theta))
+    state_var_demo = [x_demo, y_demo, v_demo, th_demo]
+    plot_multi_vars_mpc(state_var_name, state_var, T, state_var_demo)
     plot_multi_vars(stl_milp, ['u_a', 'u_delta'], T)
     ani = visualize_demo_and_stl(x_demo, y_demo, stl_milp, T)
-    # save_vid(ani, "anim/carla.gif")
 
     # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
     x_traj = np.zeros(horizon)
@@ -373,3 +379,6 @@ if __name__ == '__main__':
         v_traj[i] = stl_milp.model.getVarByName('v_' + str(i)).x
         th_traj[i] = stl_milp.model.getVarByName('theta_' + str(i)).x
     #np.savetxt('../carla_settings/preference_synthesis/carla_traj.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')
+
+    # save last animation frame as a png
+    # save_vid(ani, "anim/lambda_1.png")
