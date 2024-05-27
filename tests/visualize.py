@@ -313,3 +313,89 @@ def visualize_demo_and_stl(px_demo, py_demo, stl_milp, sampling_time):
     plt.legend()
     plt.show()
     return ani
+
+
+def visualize_mpc(stl_milps, px, py, x_ped, y_ped, t, px_demo, py_demo):
+    horizon = t.shape[0]
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+    fig.suptitle('STL-Control Synthesis')
+    ax.set_title(f'x vs y, horizon: {int(horizon)}, Time: {t[-1]:.2f}')
+    ax.grid()
+    ax.xaxis.set_tick_params(labelsize=12)
+    ax.tick_params(labelsize=10)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    # plot a green square at setpoint
+    ax.plot(px[-1], py[-1], 'gs', label=r'setpoint')
+    # plot a black line at sidewalk
+    ax.axhline(y=0, color='k', linestyle='-')
+    ax.axhline(y=1, color='k', linestyle='-')
+    ax.axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=7.95, color='k', linestyle='-')
+    ax.axhline(y=8.05, color='k', linestyle='-')
+    ax.axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=15, color='k', linestyle='-')
+    ax.axhline(y=16, color='k', linestyle='-')
+
+    px_list = []
+    py_list = []
+    # px_ped_list = []
+    # py_ped_list = []
+    for i in range(len(stl_milps)):
+        px_i = [var.x for var in stl_milps[i].variables['px'].values()]
+        py_i = [var.x for var in stl_milps[i].variables['py'].values()]
+        px_list.append(px_i)
+        py_list.append(py_i)
+        # px_ped_i = [var.x for var in stl_milps[i].variables['x_ped'].values()]
+        # py_ped_i = [var.x for var in stl_milps[i].variables['y_ped'].values()]
+        # px_ped_list.append(px_ped_i)
+        # py_ped_list.append(py_ped_i)
+    line4, = ax.plot(px_list[0], py_list[0], '-m', linewidth=2, marker='s', markersize=7, alpha = 0.2)
+    line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7)
+    line3, = ax.plot(px_demo, py_demo, '-g', label=r'demonstration',linewidth=3, marker='s', markersize=7, alpha = 1.0)
+    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7, alpha = 0.8)
+    # line5, = ax.plot(px_ped_list[0], py_ped_list[0], '-b', linewidth=2, marker='s', markersize=7, alpha = 0.1)
+
+
+    # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
+    ax.plot(x_ped[0], y_ped[0], 'bo', label='initial pedestrian')
+    ax.plot(x_ped[-1], y_ped[-1], 'bo', label='final pedestrian')
+    ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
+
+    def animate(i):
+        if i < len(px_list):
+            line4.set_xdata(px_list[i])
+            line4.set_ydata(py_list[i])
+            # line5.set_xdata(px_ped_list[i])
+            # line5.set_ydata(py_ped_list[i])
+        line2.set_xdata(x_ped[:i])
+        line2.set_ydata(y_ped[:i])
+        line3.set_xdata(px_demo[:i])
+        line3.set_ydata(py_demo[:i])
+        line.set_xdata(px[:i])
+        line.set_ydata(py[:i])
+        return line, line2, line3
+    
+    ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
+    # set limits
+    ax.set_xlim([-10, 130])
+    ax.set_ylim([-2, 18])
+    plt.show()
+    return ani
+
+def plot_multi_vars_mpc(var_name_list: list,var_list: list, sampling_time, var_list_demo: list = None):
+    t = [k * sampling_time for k in range(var_list[0].shape[0])]
+
+    fig_var, axs = plt.subplots(len(var_name_list), 1, figsize=(5, 8))
+    fig_var.suptitle('STL-Control Synthesis')
+
+    for i, var in enumerate(var_name_list):
+        axs[i].set_title(f'{var} vs time')
+        axs[i].plot(t, var_list[i], '-r', label=var)
+        if var_list_demo is not None:
+            axs[i].plot(t, var_list_demo[i], '-g', label=var + '_demo')
+        axs[i].grid()
+        axs[i].legend(prop={'size': 10})
+    fig_var.tight_layout()
+    plt.show()

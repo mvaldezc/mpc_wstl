@@ -1,6 +1,6 @@
 from visualize import visualize_demonstration
 import numpy as np
-from demonstrations import read_demonstration
+from demonstrations import read_demonstration, read_pro_demonstrations
 
 # Define the pedestrian model
 class pedestrian:
@@ -16,8 +16,11 @@ class pedestrian:
 ped = pedestrian()
 
 # Read demonstration
-x, y, v, th, t = read_demonstration('../carla_settings/demonstrations/trajectory-a_5.csv')
+# x, y, v, th, t = read_demonstration('../carla_settings/demonstrations/trajectory-a_5.csv')
+x, y, v, th, t, x_ped, y_ped = read_pro_demonstrations()
+print(y)
 
 # rollout pedestrian dynamics
-pedestrian_position = np.array([ped(t[i]) for i in range(t.shape[0])])
-visualize_demonstration(x, y, pedestrian_position[:,0], pedestrian_position[:,1], t)
+# pedestrian_position = np.array([ped(t[i]) for i in range(t.shape[0])])
+# visualize_demonstration(x, y, pedestrian_position[:,0], pedestrian_position[:,1], t)
+visualize_demonstration(x, y, x_ped, y_ped, t)
