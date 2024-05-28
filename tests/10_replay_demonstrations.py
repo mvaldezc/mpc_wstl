@@ -25,4 +25,11 @@ print(y)
 # visualize_demonstration(x, y, pedestrian_position[:,0], pedestrian_position[:,1], t)
 visualize_demonstration(x, y, x_ped, y_ped, t)
 
-np.savetxt('../carla_settings/preference_synthesis/carla_traj_demo_0.csv', np.vstack((x, y)).T, delimiter=',')
+# change pickle version
+import pickle
+with open("misc/pedestrian_trajectories.pkl", "rb") as f:
+        data = pickle.load(f)
+with open("misc/pedestrian_trajectories_downgraded.pkl", "wb") as f:
+    pickle.dump(data, f, protocol=4)
+
+# np.savetxt('../carla_settings/preference_synthesis/carla_traj_demo_0.csv', np.vstack((x, y)).T, delimiter=',')
