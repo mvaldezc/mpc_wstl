@@ -17,10 +17,12 @@ ped = pedestrian()
 
 # Read demonstration
 # x, y, v, th, t = read_demonstration('../carla_settings/demonstrations/trajectory-a_5.csv')
-x, y, v, th, t, x_ped, y_ped = read_pro_demonstrations()
+x, y, v, th, t, x_ped, y_ped = read_pro_demonstrations(0)
 print(y)
 
 # rollout pedestrian dynamics
 # pedestrian_position = np.array([ped(t[i]) for i in range(t.shape[0])])
 # visualize_demonstration(x, y, pedestrian_position[:,0], pedestrian_position[:,1], t)
 visualize_demonstration(x, y, x_ped, y_ped, t)
+
+np.savetxt('../carla_settings/preference_synthesis/carla_traj_demo_0.csv', np.vstack((x, y)).T, delimiter=',')
