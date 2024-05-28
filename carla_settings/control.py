@@ -22,6 +22,7 @@ import re
 import sys
 import weakref
 import csv
+from pathlib import Path
 
 try:
     import pygame
@@ -670,7 +671,8 @@ class CameraManager(object):
 
 def read_trajectory_file():
     traj_pos = []
-    with open('/preference_synthesis/carla_traj.csv', 'r') as f:
+    path = Path(__file__).parent
+    with open(str(path.absolute())+'/preference_synthesis/carla_traj.csv', 'r') as f:
         reader = csv.reader(f)
         for row in reader:
             traj_pos.append(carla.Location(x=float(row[0]), y=float(row[1]), z=0.2))
