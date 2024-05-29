@@ -669,10 +669,11 @@ class CameraManager(object):
 # ==============================================================================
 
 
-def read_trajectory_file():
+def read_trajectory_file(args):
     traj_pos = []
     path = Path(__file__).parent
-    with open(str(path.absolute())+'/preference_synthesis/carla_traj.csv', 'r') as f:
+    # with open(str(path.absolute())+'/preference_synthesis/carla_traj.csv', 'r') as f:
+    with open(str(path.absolute())+'/preference_synthesis/carla_traj_demo_'+args.demo+'.csv', 'r') as f:
         reader = csv.reader(f)
         for row in reader:
             traj_pos.append(carla.Location(x=float(row[0]), y=float(row[1]), z=0.2))
@@ -735,10 +736,10 @@ def game_loop(args):
         #     traj_pos.append(carla.Location(x=start[0] - i*2.0, y=start[1], z=start[2]))
 
         # Read csv trajectory file generated 
-        traj_pos = read_trajectory_file()
+        traj_pos = read_trajectory_file(args)
 
         # Calulate the speed to reach the next waypoint in 0.4 seconds
-        T = 0.2
+        T = 0.1
         traj_vel = []
         traj_vel.append(1.0) # Reach first waypoint at 36 km/h
         for i in range(1, len(traj_pos)):
@@ -750,7 +751,7 @@ def game_loop(args):
         walker_bp = random.choice(world.world.get_blueprint_library().filter('walker.pedestrian.*'))
         walker_transform = carla.Transform(carla.Location(x=-259, y=10, z=0.4), carla.Rotation(yaw=180))
         walker = world.world.spawn_actor(walker_bp, walker_transform)
-        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=1.1)
+        walker_control = carla.WalkerControl(direction = carla.Vector3D(x=0, y=-1, z=0), speed=0.9)
         walker.apply_control(walker_control)
 
         clock = pygame.time.Clock()
@@ -779,7 +780,7 @@ def game_loop(args):
                 pygame.display.flip()
 
                 # Set a threshold distance to look for the next waypoint 
-                if location.distance(world.player.get_location()) < 1.0 or agent.done():
+                if location.distance(world.player.get_location()) < 0.8 or agent.done():
                     break
                 
                 control = agent.run_step()
@@ -865,6 +866,10 @@ def main():
         help='Set seed for repeating executions (default: None)',
         default=None,
         type=int)
+    argparser.add_argument(
+        '--demo',
+        default='0',
+        help='Demo number (default: 0)')
 
     args = argparser.parse_args()
 
