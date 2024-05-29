@@ -785,7 +785,7 @@ def start_csv(filename):
 
     with open(filename, mode='w') as trajectory_file:
         trajectory_writer = csv.writer(trajectory_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        trajectory_writer.writerow(['x', 'y', 'speed', 'yaw', 'time'])
+        trajectory_writer.writerow(['x', 'y', 'speed', 'yaw', 'time', 'x_ped', 'y_ped'])
 
     return filename
 
@@ -891,23 +891,27 @@ def game_loop(args):
 
                 # Write the trajectory data to the csv file
                 if onTrajectory_a:
+                    walker_location = walker_1.get_location()
                     with open(filename_a, mode='a') as trajectory_file_a:
                         trajectory_writer_a = csv.writer(trajectory_file_a, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                         trajectory_writer_a.writerow([vehicle_location.x, 
                                                     vehicle_location.y, 
                                                     velocity_mag,
                                                     world.player.get_transform().rotation.yaw, 
-                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds, 3)])
+                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds, 3), 
+                                                    walker_location.x, walker_location.y])
                                                     
                         
                 if onTrajectory_b:
+                    walker_location = walker_2.get_location()
                     with open(filename_b, mode='a') as trajectory_file_b:
                         trajectory_writer_b = csv.writer(trajectory_file_b, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                         trajectory_writer_b.writerow([vehicle_location.x, 
                                                     vehicle_location.y, 
                                                     velocity_mag,
                                                     world.player.get_transform().rotation.yaw,
-                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds, 3)])
+                                                    round(world.world.get_snapshot().timestamp.elapsed_seconds, 3), 
+                                                    walker_location.x, walker_location.y])
 
     finally:
         if world is not None:

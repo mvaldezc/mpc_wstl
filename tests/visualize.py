@@ -466,7 +466,7 @@ def visualize_multiple(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, reg
 
     ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
     plt.legend(fontsize=22)
-    ax.set_xlim([-2, 150])
+    ax.set_xlim([-2, 140])
     ax.set_ylim([0.5, 5])
     plt.show()
     return ani

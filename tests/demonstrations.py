@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import pickle
 
-def read_demonstration(filename : str):
+def read_demonstration(filename : str, T : float = 0.2):
     # read csv in carla_settings/demonstrations
     data = np.genfromtxt(filename, delimiter=',')[1:,:]
     x = data[:,0]
@@ -30,13 +30,22 @@ def read_demonstration(filename : str):
         x_prev = x[i]
 
     # remove data before zero and subsample
+    sub = T//0.025
+    x = x[zero_idx:][::sub]
+    y = y[zero_idx:][::sub]
+    th = th[zero_idx:][::sub]
+    v = v[zero_idx:][::sub]
+    t = t[:len - zero_idx][::sub]
 
-    x = x[zero_idx:][::8]
-    y = y[zero_idx:][::8]
-    th = th[zero_idx:][::8]
-    v = v[zero_idx:][::8]
-    t = t[:len - zero_idx][::8]
-
+    if data[0].shape[0] == 7:
+        x_ped = data[:,5]
+        y_ped = data[:,6]
+        x_ped = -x_ped - 143
+        y_ped = y_ped + 6.5
+        x_ped = x_ped[zero_idx:][::sub]
+        y_ped = y_ped[zero_idx:][::sub]
+        return x, y, v, th, t, x_ped, y_ped
+    
     return x, y, v, th, t
 
 def read_pro_demonstrations(num:int=0):
@@ -62,7 +71,7 @@ def read_pro_demonstrations(num:int=0):
 
     for k in range(N):
         velocity = -(ego_data[k][1:, :] - ego_data[k][:-1, :]) / 0.1
-        velocity0 = -(ego_data[k][0]-torch.tensor([-147,4.0])) / 0.1
+        velocity0 = -(ego_data[k][0]-torch.tensor([-142,4.0])) / 0.1
         velocity = torch.cat((velocity0.unsqueeze(0), velocity), axis=0)
         vels.append(velocity)
         speed = torch.linalg.norm(velocity, axis=-1, keepdim=True)
@@ -78,8 +87,8 @@ def read_pro_demonstrations(num:int=0):
 
     t = np.arange(0, len(x)*0.1, 0.1)
 
-    x = -x - 147
-    y = -y + 6.5
+    x = -x - 142
+    y = -y + 6.75
 
     x_ped = ado_data[num][:, 0]
     y_ped = ado_data[num][:, 1]
