@@ -825,8 +825,8 @@ def game_loop(args):
             record = True
 
         if record:
-            filename_a = 'demonstrations/trajectory-a.csv'
-            filename_b = 'demonstrations/trajectory-b.csv'
+            filename_a = f'./demonstrations/{args.id}_trajectory_a.csv'
+            filename_b = f'./demonstrations/{args.id}_trajectory-b.csv'
             
             onTrajectory_a = False
             onTrajectory_b = False
@@ -958,6 +958,11 @@ def main():
         '--record',
         action='store_true',
         help='record the simulation to disk')
+    argparser.add_argument(
+        '--id',
+        default = 0,
+        type = int,
+        help='participant id')
     args = argparser.parse_args()
 
     args.width, args.height = [int(x) for x in args.res.split('x')]

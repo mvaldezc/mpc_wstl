@@ -673,7 +673,8 @@ def read_trajectory_file(args):
     traj_pos = []
     path = Path(__file__).parent
     # with open(str(path.absolute())+'/preference_synthesis/carla_traj.csv', 'r') as f:
-    with open(str(path.absolute())+'/preference_synthesis/carla_traj_demo_'+args.demo+'.csv', 'r') as f:
+    # with open(str(path.absolute())+'/preference_synthesis/carla_traj_demo_'+args.demo+'.csv', 'r') as f:
+    with open(args.demo, 'r') as f:
         reader = csv.reader(f)
         for row in reader:
             traj_pos.append(carla.Location(x=float(row[0]), y=float(row[1]), z=0.2))
