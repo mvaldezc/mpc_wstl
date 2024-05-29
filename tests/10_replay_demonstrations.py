@@ -24,15 +24,4 @@ x, y, v, th, t, x_ped, y_ped = read_pro_demonstrations(0)
 # visualize_demonstration(x, y, pedestrian_position[:,0], pedestrian_position[:,1], t)
 visualize_demonstration(x, y, x_ped, y_ped, t)
 
-# change pickle version for compatibility issues
-import pickle
-with open("misc/pedestrian_trajectories.pkl", "rb") as f:
-    data = pickle.load(f)
-# convert pandas frame in data to numpy array
-array=[]
-for k in range(len(data["ego_trajectory"])):
-    array.append(np.array(data["ego_trajectory"][k]))
-with open("misc/pedestrian_trajectories_downgraded.pkl", "wb") as f:
-    pickle.dump(array, f, protocol=4)
-
-# np.savetxt('../carla_settings/preference_synthesis/carla_traj_demo_0.csv', np.vstack((x, y)).T, delimiter=',')
+# np.savetxt('../carla_settings/preference_synthesis/carla_traj_demo_14.csv', np.vstack((x, y)).T, delimiter=',')

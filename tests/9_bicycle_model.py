@@ -365,4 +365,4 @@ if __name__ == '__main__':
         x_traj[i] = stl_milp.model.getVarByName('px_' + str(i)).x
         y_traj[i] = stl_milp.model.getVarByName('py_' + str(i)).x
         v_traj[i] = stl_milp.model.getVarByName('v_' + str(i)).x
-    #np.savetxt('../carla_settings/preference_synthesis/carla_traj.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')
+    # np.savetxt('../carla_settings/preference_synthesis/carla_traj.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')

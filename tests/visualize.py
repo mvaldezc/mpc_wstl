@@ -290,9 +290,9 @@ def visualize_demo_and_stl(px_demo, py_demo, stl_milp, sampling_time):
     ax.axhline(y=15, color='k', linestyle='-')
     ax.axhline(y=16, color='k', linestyle='-')
 
-    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7, alpha = 0.6)
+    line, = ax.plot(px, py, '-r', label=r'car', linewidth=3, marker='s', markersize=7, alpha = 0.7)
     line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7, alpha = 0.6)
-    line3, = ax.plot(px_demo, py_demo, '-g', label=r'demonstration',linewidth=3, marker='s', markersize=7, alpha = 0.4)
+    line3, = ax.plot(px_demo, py_demo, '-g', label=r'demonstration',linewidth=3, marker='s', markersize=7, alpha = 0.3)
 
     # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
     ax.plot(x_ped[0], y_ped[0], 'bo')
@@ -399,3 +399,74 @@ def plot_multi_vars_mpc(var_name_list: list,var_list: list, sampling_time, var_l
         axs[i].legend(prop={'size': 10})
     fig_var.tight_layout()
     plt.show()
+
+def visualize_multiple(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region, sampling_time):
+    t = [k * sampling_time for k in stl_milp_1.variables['px'].keys()]
+
+    x_ped = [var.x for var in stl_milp_1.variables['x_ped'].values()]
+    y_ped = [var.x for var in stl_milp_1.variables['y_ped'].values()]
+
+    px_1 = [var.x for var in stl_milp_1.variables['px'].values()]
+    py_1 = [var.x for var in stl_milp_1.variables['py'].values()]
+
+    px_2 = [var.x for var in stl_milp_2.variables['px'].values()]
+    py_2 = [var.x for var in stl_milp_2.variables['py'].values()]
+
+    px_3 = [var.x for var in stl_milp_3.variables['px'].values()]
+    py_3 = [var.x for var in stl_milp_3.variables['py'].values()]
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
+    horizon = t[-1]/sampling_time
+    ax.grid()
+    ax.tick_params(labelsize=20)
+    ax.set_xlabel('x', fontsize=22)
+    ax.set_ylabel('y', fontsize=22)
+
+    # plot a black line at sidewalk
+    ax.axhline(y=0, color='k', linestyle='-')
+    ax.axhline(y=1, color='k', linestyle='-')
+    ax.axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=7.95, color='k', linestyle='-')
+    ax.axhline(y=8.05, color='k', linestyle='-')
+    ax.axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+    ax.axhline(y=15, color='k', linestyle='-')
+    ax.axhline(y=16, color='k', linestyle='-')
+
+    rho1 = stl_milp_1.variables[stl_milp_1.formula][0][1].x
+    rho2 = stl_milp_2.variables[stl_milp_2.formula][0][1].x
+    rho3 = stl_milp_3.variables[stl_milp_3.formula][0][1].x
+
+    # Region contains the final region limits as [x_min, x_max, y_min, y_max]
+    ax.fill_between([region[0], region[1]], region[2], region[3], color='m', alpha=0.3, label='destination')
+
+    line2, = ax.plot(x_ped, y_ped, '-b', label=r'pedestrian',linewidth=3, marker='s', markersize=7, alpha = 0.7)
+    line3, = ax.plot(px_demo, py_demo, '-g', label=r'demonstration',linewidth=3, marker='s', markersize=7, alpha = 0.7)
+    line, = ax.plot(px_1, py_1, '-r', label=r'car W1 $\rho$='+f'{rho1:.3f}', linewidth=3, marker='s', markersize=7, alpha = 0.5)
+    line4, = ax.plot(px_2, py_2, '-m', label=r'car W2 $\rho$='+f'{rho2:.3f}', linewidth=3, marker='s', markersize=7, alpha = 0.5)
+    line5, = ax.plot(px_3, py_3, '-c', label=r'car W3 $\rho$='+f'{rho3:.3f}', linewidth=3, marker='s', markersize=7, alpha = 0.5)
+
+    # Show initial and final coordinates for pedestrian by adding text of (x,y) at the points
+    ax.plot(x_ped[0], y_ped[0], 'bo')
+    ax.plot(x_ped[-1], y_ped[-1], 'bo')
+    ax.text(x_ped[0], y_ped[0], f'({x_ped[0]:.2f},{y_ped[0]:.2f})', fontsize=8)
+    ax.text(x_ped[-1], y_ped[-1], f'({x_ped[-1]:.2f},{y_ped[-1]:.2f})', fontsize=8)
+
+    def animate(i):
+        line2.set_xdata(x_ped[:i])
+        line2.set_ydata(y_ped[:i])
+        line3.set_xdata(px_demo[:i])
+        line3.set_ydata(py_demo[:i])
+        line.set_xdata(px_1[:i])
+        line.set_ydata(py_1[:i])
+        line4.set_xdata(px_2[:i])
+        line4.set_ydata(py_2[:i])
+        line5.set_xdata(px_3[:i])
+        line5.set_ydata(py_3[:i])
+        return line, line2, line3
+
+    ani = animation.FuncAnimation(fig, animate, frames=len(t)+1, interval=100, repeat=False)
+    plt.legend(fontsize=22)
+    ax.set_xlim([-2, 150])
+    ax.set_ylim([0.5, 5])
+    plt.show()
+    return ani

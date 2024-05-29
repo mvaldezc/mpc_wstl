@@ -29,6 +29,7 @@ def wstl_synthesis_control(
                 control_lb : dict, 
                 control_ub : dict,
                 x_0 : dict,
+                lin : dict,
                 demo : dict,
                 alpha: np.ndarray, 
                 beta : np.ndarray,
@@ -204,19 +205,19 @@ def wstl_synthesis_control(
     # system constraints x[k+1] = A X[k]+ B U[k]
     for k in range(time_horizon-1):
         wstl_milp.model.addConstr(px[k+1] == A[0][0] * px[k]   +  A[0][1] * py[k]      +
-                                             A[0][2] * (v[k]-v[0])    +  A[0][3] * (theta[k]-theta[0])   +
+                                             A[0][2] * (v[k]-lin['v'])    +  A[0][3] * (theta[k]-lin['th'])   +
                                              B[0][0] * u_a[k]  +  B[0][1] * u_delta[k] + f0[0])
 
         wstl_milp.model.addConstr(py[k+1] == A[1][0] * px[k]   +  A[1][1] * py[k]      +
-                                             A[1][2] * (v[k]-v[0])    +  A[1][3] * (theta[k]-theta[0])   +
+                                             A[1][2] * (v[k]-lin['v'])    +  A[1][3] * (theta[k]-lin['th'])   +
                                              B[1][0] * u_a[k]  +  B[1][1] * u_delta[k] + f0[1])
         
         wstl_milp.model.addConstr(v[k+1] ==  A[2][0] * px[k]   +  A[2][1] * py[k]      +
-                                             A[2][2] * (v[k]-v[0])    +  A[2][3] * (theta[k]-theta[0])   +
+                                             A[2][2] * (v[k]-lin['v'])    +  A[2][3] * (theta[k]-lin['th'])   +
                                              B[2][0] * u_a[k]  +  B[2][1] * u_delta[k] + f0[2])
 
         wstl_milp.model.addConstr(theta[k+1] == A[3][0] * px[k]  +  A[3][1] * py[k]      +
-                                                A[3][2] * (v[k]-v[0])   +  A[3][3] * (theta[k]-theta[0])   +
+                                                A[3][2] * (v[k]-lin['v'])   +  A[3][3] * (theta[k]-lin['th'])   +
                                                 B[3][0] * u_a[k] +  B[3][1] * u_delta[k] + f0[3])
 
     # Jerk constraints
@@ -318,6 +319,7 @@ if __name__ == '__main__':
     # Linearization point
     x0 = torch.tensor([0, 0, 0.2, 0]).reshape(1,4) # x, y doesn't matter for linearization
     u0 = torch.tensor([0, 0]).reshape(1,2)
+    lin = {'v': x0[0,2], 'th': x0[0,3]}
 
     # Define the matrices for linear system 
     model = BicycleModel(dt=T)
@@ -347,7 +349,7 @@ if __name__ == '__main__':
     # Translate WSTL to MILP and retrieve integer variable for the formula
     stl_start = time.time()
     stl_milp, rho_formula, z = wstl_synthesis_control(phi, weights, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, demo, alpha, beta, zeta, lambd)
+                                    control_ub, x_0, lin, demo, alpha, beta, zeta, lambd)
     stl_end = time.time()
     stl_time = stl_end - stl_start
 
