@@ -30,7 +30,7 @@ def read_demonstration(filename : str, T : float = 0.2):
         x_prev = x[i]
 
     # remove data before zero and subsample
-    sub = T//0.025
+    sub = int(T//0.025)
     x = x[zero_idx:][::sub]
     y = y[zero_idx:][::sub]
     th = th[zero_idx:][::sub]
