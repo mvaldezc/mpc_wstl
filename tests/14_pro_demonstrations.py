@@ -1,6 +1,6 @@
 from antlr4 import InputStream, CommonTokenStream
 import time
-from visualize import visualize_demo_and_stl, plot_multi_vars, save_vid, plot_multi_vars_mpc, visualize_multiple
+from visualize import visualize_demo_and_stl, plot_multi_vars, save_vid, plot_multi_vars_mpc, visualize_multiple, visualize_grid
 from demonstrations import read_pro_demonstrations
 import gurobipy as grb
 import sys
@@ -36,7 +36,8 @@ def wstl_synthesis_control(
                 alpha: np.ndarray, 
                 beta : np.ndarray,
                 zeta : np.ndarray,
-                lambd : float):
+                lambd : float,
+                stateFlag : bool = True):
     """
     Synthesize a controller for a given wSTL formula and a linear system
 
@@ -276,7 +277,10 @@ def wstl_synthesis_control(
 
     wstl_milp.model.addConstr(rho_formula >= 0)
     
-    wstl_milp.model.setObjective(lambd*rho_formula, grb.GRB.MAXIMIZE)#- control_cost - jerk_cost - steering_cost, grb.GRB.MAXIMIZE)
+    if stateFlag:
+        wstl_milp.model.setObjective(lambd*rho_formula - state_cost, grb.GRB.MAXIMIZE)
+    else:
+        wstl_milp.model.setObjective(lambd*rho_formula, grb.GRB.MAXIMIZE)
 
     # Solve the problem with gurobi 
     wstl_milp.model.optimize()
@@ -359,56 +363,64 @@ if __name__ == '__main__':
 
 
     # Translate WSTL to MILP and retrieve integer variable for the formula
-    stl_milp_1, rho_formula_1, z_1 = wstl_synthesis_control(phi, W1, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, lin, demo, alpha, beta, zeta, lambd)
+    stl_ones = []
+    stl_twos = []
+    stl_threes = []
+    lambdas = [1.0, 0.0, 100.0]
+    stateFlags = [False, True, True]
+    for i in range(3):
+
+        stl_ones.append(wstl_synthesis_control(phi, W1, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
+                                        control_ub, x_0, lin, demo, alpha, beta, zeta, lambdas[i], stateFlags[i]))
+        
+        stl_twos.append(wstl_synthesis_control(phi, W2, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
+                                        control_ub, x_0, lin, demo, alpha, beta, zeta, lambdas[i], stateFlags[i]))
+        
+        stl_threes.append((wstl_synthesis_control(phi, W3, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
+                                    control_ub, x_0, lin, demo, alpha, beta, zeta, lambdas[i], stateFlags[i])))
     
-    stl_milp_2, rho_formula_2, z_2 = wstl_synthesis_control(phi, W2, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, lin, demo, alpha, beta, zeta, lambd)
-    
-    stl_milp_3, rho_formula_3, z_3 = wstl_synthesis_control(phi, W3, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
-                                    control_ub, x_0, lin, demo, alpha, beta, zeta, lambd)
-    
-    print(f"Robustness 1:", rho_formula_1.x, "z:", z_1.x)
-    print(f"Robustness 2:", rho_formula_2.x, "z:", z_2.x)
-    print(f"Robustness 3:", rho_formula_3.x, "z:", z_3.x)
+    print(f"Robustness 1:", stl_ones[0][1].x, "z:", stl_ones[0][2].x)
+    print(f"Robustness 2:", stl_twos[0][1].x, "z:", stl_ones[0][2].x)
+    print(f"Robustness 3:", stl_threes[0][1].x, "z:", stl_ones[0][2].x)
 
     # Visualize the results
-    state_var_name = ['px', 'py', 'v', 'theta']
-    px_1 = np.array([stl_milp_1.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
-    py_1 = np.array([stl_milp_1.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
-    v_1 = np.array([stl_milp_1.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
-    theta_1 = np.array([stl_milp_1.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
-    state_var_1 = np.vstack((px_1, py_1, v_1, theta_1))
+    # state_var_name = ['px', 'py', 'v', 'theta']
+    # px_1 = np.array([stl_milp_1.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
+    # py_1 = np.array([stl_milp_1.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
+    # v_1 = np.array([stl_milp_1.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
+    # theta_1 = np.array([stl_milp_1.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
+    # state_var_1 = np.vstack((px_1, py_1, v_1, theta_1))
 
-    px_2 = np.array([stl_milp_2.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
-    py_2 = np.array([stl_milp_2.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
-    v_2 = np.array([stl_milp_2.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
-    theta_2 = np.array([stl_milp_2.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
-    state_var_2 = np.vstack((px_2, py_2, v_2, theta_2))
+    # px_2 = np.array([stl_milp_2.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
+    # py_2 = np.array([stl_milp_2.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
+    # v_2 = np.array([stl_milp_2.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
+    # theta_2 = np.array([stl_milp_2.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
+    # state_var_2 = np.vstack((px_2, py_2, v_2, theta_2))
 
-    px_3 = np.array([stl_milp_3.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
-    py_3 = np.array([stl_milp_3.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
-    v_3 = np.array([stl_milp_3.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
-    theta_3 = np.array([stl_milp_3.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
-    state_var_3 = np.vstack((px_3, py_3, v_3, theta_3))
+    # px_3 = np.array([stl_milp_3.model.getVarByName('px_' + str(i)).x for i in range(horizon+1)])
+    # py_3 = np.array([stl_milp_3.model.getVarByName('py_' + str(i)).x for i in range(horizon+1)])
+    # v_3 = np.array([stl_milp_3.model.getVarByName('v_' + str(i)).x for i in range(horizon+1)])
+    # theta_3 = np.array([stl_milp_3.model.getVarByName('theta_' + str(i)).x for i in range(horizon+1)])
+    # state_var_3 = np.vstack((px_3, py_3, v_3, theta_3))
     # plot_multi_vars_mpc(state_var_name, state_var, T, state_var_demo)
     # plot_multi_vars(stl_milp, ['u_a', 'u_delta'], T)
     # region = [118, 124, 1, 4.5]
     region = [98, 140, 1, 4.5]
     # ani = visualize_demo_and_stl(x_demo, y_demo, stl_milp_1, T)
-    ani = visualize_multiple(x_demo, y_demo, stl_milp_1, stl_milp_2, stl_milp_3, region, T)
+    
+    ani = visualize_grid(x_demo, y_demo, stl_ones, stl_twos, stl_threes, region, T, lambdas)
 
     # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
-    x_traj = np.zeros(horizon)
-    y_traj = np.zeros(horizon)
-    v_traj = np.zeros(horizon)
-    th_traj = np.zeros(horizon)
-    for i in range(horizon):
-        x_traj[i] = stl_milp_2.model.getVarByName('px_' + str(i)).x
-        y_traj[i] = stl_milp_2.model.getVarByName('py_' + str(i)).x
-        v_traj[i] = stl_milp_2.model.getVarByName('v_' + str(i)).x
-        th_traj[i] = stl_milp_2.model.getVarByName('theta_' + str(i)).x
-    np.savetxt('../carla_settings/preference_synthesis/carla_traj_3.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')
+    # x_traj = np.zeros(horizon)
+    # y_traj = np.zeros(horizon)
+    # v_traj = np.zeros(horizon)
+    # th_traj = np.zeros(horizon)
+    # for i in range(horizon):
+    #     x_traj[i] = stl_milp_2.model.getVarByName('px_' + str(i)).x
+    #     y_traj[i] = stl_milp_2.model.getVarByName('py_' + str(i)).x
+    #     v_traj[i] = stl_milp_2.model.getVarByName('v_' + str(i)).x
+    #     th_traj[i] = stl_milp_2.model.getVarByName('theta_' + str(i)).x
+    # np.savetxt('../carla_settings/preference_synthesis/carla_traj_3.csv', np.vstack((x_traj, y_traj, v_traj)).T, delimiter=',')
 
     # save last animation frame as a png
     # save_vid(ani, "anim/lambda_1.png")
