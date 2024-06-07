@@ -1,7 +1,7 @@
 from antlr4 import InputStream, CommonTokenStream
 import time
-from visualize import visualize_demo_and_stl, plot_multi_vars, save_vid, plot_multi_vars_mpc, visualize_multiple, visualize_grid
-from demonstrations import read_pro_demonstrations
+from visualize import plot_multi_vars, save_vid, plot_multi_vars_mpc,  visualize_grid
+from demonstrations import read_pro_demonstrations, read_demonstration_broken
 import gurobipy as grb
 import sys
 import numpy as np
@@ -252,6 +252,8 @@ def wstl_synthesis_control(
     # add the specification (STL) constraints and objective function
     z_formula, rho_formula = wstl_milp.translate(satisfaction=True)
 
+    wstl_milp.model.addConstr(rho_formula >= 0.001)
+
     # State error cost
     wstl_milp.model.addConstrs(delta_px[k] == demo['px'][k] - px[k] for k in range(time_horizon))
     wstl_milp.model.addConstrs(delta_py[k] == demo['py'][k] - py[k] for k in range(time_horizon))
@@ -290,8 +292,11 @@ def wstl_synthesis_control(
 if __name__ == '__main__':  
 
     # Read demonstration
-    x_demo, y_demo, v_demo, th_demo, t_demo, x_ped, y_ped = read_pro_demonstrations(2)
+    # x_demo, y_demo, v_demo, th_demo, t_demo, x_ped, y_ped = read_pro_demonstrations(2)
+    x_demo, y_demo, v_demo, th_demo, t_demo = read_demonstration_broken('../carla_settings/demonstrations/1010_trajectory-a.csv')
     demo = {'px': x_demo.squeeze(), 'py': y_demo.squeeze(), 'v': v_demo.squeeze(), 'th': th_demo.squeeze()}
+
+    # print(demo['px'])
 
     horizon = x_demo.shape[0]-1
 
@@ -366,9 +371,9 @@ if __name__ == '__main__':
     stl_ones = []
     stl_twos = []
     stl_threes = []
-    lambdas = [1.0, 0.0, 100.0]
-    stateFlags = [False, True, True]
-    for i in range(3):
+    lambdas = [0.0, 100.0, 1000.0, 1.0]
+    stateFlags = [True, True, True, False]
+    for i in range(len(lambdas)):
 
         stl_ones.append(wstl_synthesis_control(phi, W1, ped, f0, Ad, Bd, T, vars_lb, vars_ub, control_lb, 
                                         control_ub, x_0, lin, demo, alpha, beta, zeta, lambdas[i], stateFlags[i]))
@@ -382,6 +387,15 @@ if __name__ == '__main__':
     print(f"Robustness 1:", stl_ones[0][1].x, "z:", stl_ones[0][2].x)
     print(f"Robustness 2:", stl_twos[0][1].x, "z:", stl_ones[0][2].x)
     print(f"Robustness 3:", stl_threes[0][1].x, "z:", stl_ones[0][2].x)
+    print(f"Robustness 1:", stl_ones[1][1].x, "z:", stl_ones[1][2].x)
+    print(f"Robustness 2:", stl_twos[1][1].x, "z:", stl_ones[1][2].x)
+    print(f"Robustness 3:", stl_threes[1][1].x, "z:", stl_ones[1][2].x)
+    print(f"Robustness 1:", stl_ones[2][1].x, "z:", stl_ones[2][2].x)
+    print(f"Robustness 2:", stl_twos[2][1].x, "z:", stl_ones[2][2].x)
+    print(f"Robustness 3:", stl_threes[2][1].x, "z:", stl_ones[2][2].x)
+    print(f"Robustness 1:", stl_ones[3][1].x, "z:", stl_ones[3][2].x)
+    print(f"Robustness 2:", stl_twos[3][1].x, "z:", stl_ones[3][2].x)
+    print(f"Robustness 3:", stl_threes[3][1].x, "z:", stl_ones[3][2].x)
 
     # Visualize the results
     # state_var_name = ['px', 'py', 'v', 'theta']
@@ -408,7 +422,7 @@ if __name__ == '__main__':
     region = [98, 140, 1, 4.5]
     # ani = visualize_demo_and_stl(x_demo, y_demo, stl_milp_1, T)
     
-    ani = visualize_grid(x_demo, y_demo, stl_ones, stl_twos, stl_threes, region, T, lambdas)
+    ani = visualize_grid(x_demo, y_demo, stl_ones, stl_threes, stl_twos, region, T, lambdas)
 
     # Create a csv file with the trajectory of the car for the whole horizon, were each row is a different time containing x and y
     # x_traj = np.zeros(horizon)

@@ -472,6 +472,9 @@ def visualize_multiple(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, reg
     return ani
 
 def visualize_grid(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region, sampling_time, lambdas):
+
+    colors = {'ped': 'black', 'demo': '#4575b4', 'car1': '#d73027', 'car2': '#91bfdb', 'car3': '#fc8d59', 'destination': '#fee090'}
+
     subsample = 4
     ts = []
     x_peds = []
@@ -497,34 +500,43 @@ def visualize_grid(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region,
         px_3s.append([var.x for var in stl_milp_3[i][0].variables['px'].values()])
         py_3s.append([var.x for var in stl_milp_3[i][0].variables['py'].values()])
 
-    fig, ax = plt.subplots(1, 3, figsize=(18, 5))
+    fig, ax = plt.subplots(2, 2, figsize=(18, 8))
 
-    ax[0].set_ylabel('y    ', fontsize=18)
-    ax[0].yaxis.label.set_rotation(0)
+    ax[0,0].set_ylabel('y    ', fontsize=18)
+    ax[0,0].yaxis.label.set_rotation(0)
+    ax[1,0].set_ylabel('y    ', fontsize=18)
+    ax[1,0].yaxis.label.set_rotation(0)
+    ax[1,0].set_xlabel('x', fontsize=18)
+    ax[1,1].set_xlabel('x', fontsize=18)
+
+    axes = [ax[0,0], ax[0,1], ax[1,0], ax[1,1]]
+
+    axes[0].set_title(f'a) $\lambda$={lambdas[0]}', fontsize=16)
+    axes[1].set_title(f'b) $\lambda$={lambdas[1]}', fontsize=16)
+    axes[2].set_title(f'c) $\lambda$={lambdas[2]}', fontsize=16)
+    axes[3].set_title(f'd) $\lambda$={lambdas[3]}, J=0', fontsize=16)
     
     for i in range(len(stl_milp_1)):
-        if i == 0:
-            ax[i].set_title(f'$\lambda$={lambdas[i]}, J=0', fontsize=16)
-        else:
-            ax[i].set_title(f'$\lambda$={lambdas[i]}', fontsize=16)
-        ax[i].grid()
-        ax[i].tick_params(labelsize=12)
-        ax[i].set_xlabel('x', fontsize=18)
+        axes[i].grid()
+        axes[i].tick_params(labelsize=12)
         # set y ticks off but keep y grid
-        if(i != 0):
-            ax[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+        if(i == 1  or i == 3):
+            axes[i].tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+        
+        if (i == 0 or i == 1):
+            axes[i].tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
 
         # plot a black line at sidewalk
-        ax[i].axhline(y=0, color='k', linestyle='-')
-        ax[i].axhline(y=1, color='k', linestyle='-')
-        ax[i].axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
-        ax[i].axhline(y=7.95, color='k', linestyle='-')
-        ax[i].axhline(y=8.05, color='k', linestyle='-')
-        ax[i].axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
-        ax[i].axhline(y=15, color='k', linestyle='-')
-        ax[i].axhline(y=16, color='k', linestyle='-')
+        axes[i].axhline(y=0, color='k', linestyle='-')
+        axes[i].axhline(y=1, color='k', linestyle='-')
+        axes[i].axhline(y=4.5, color='k', linestyle=(0, (5, 10)))
+        axes[i].axhline(y=7.95, color='k', linestyle='-')
+        axes[i].axhline(y=8.05, color='k', linestyle='-')
+        axes[i].axhline(y=11.5, color='k', linestyle=(0, (5, 10)))
+        axes[i].axhline(y=15, color='k', linestyle='-')
+        axes[i].axhline(y=16, color='k', linestyle='-')
         # Region contains the final region limits as [x_min, x_max, y_min, y_max]
-        ax[i].fill_between([region[0], region[1]], region[2], region[3], color='m', alpha=0.3, label='DESTINATION')
+        axes[i].fill_between([region[0], region[1]], region[2], region[3], color=colors['destination'], alpha=0.3, label='DESTINATION')
 
     rho1 = []
     rho2 = []
@@ -540,26 +552,32 @@ def visualize_grid(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region,
     lines_2 = []
     lines_3 = []
     for i in range(len(stl_milp_1)):
-        line_ped, = ax[i].plot(x_peds[i], y_peds[i], '-b', label=r'PEDESTRIAN', linewidth=2, marker='s', markersize=5, alpha = 0.7)
-        line_demo, = ax[i].plot(px_demo, py_demo, '-g', label=r'DEMONSTRATION', linewidth=2, marker='s', markersize=5, alpha = 0.7)
-        line1, = ax[i].plot(px_1s[i], py_1s[i], '-r', label=r'CAR W1', linewidth=2, marker='s', markersize=5, alpha = 0.5)
-        line2, = ax[i].plot(px_2s[i], py_2s[i], '-m', label=r'CAR W2', linewidth=2, marker='s', markersize=5, alpha = 0.5)
-        line3, = ax[i].plot(px_3s[i], py_3s[i], '-c', label=r'CAR W3', linewidth=2, marker='s', markersize=5, alpha = 0.5)
+        line_ped, = axes[i].plot(x_peds[i], y_peds[i], '-b', label=r'PEDESTRIAN', linewidth=2, marker='o', markersize=5, alpha = 1.0)
+        line_demo, = axes[i].plot(px_demo, py_demo, '-g', label=r'DEMONSTRATION', linewidth=2, marker='s', markersize=5, alpha = 1.0)
+        line1, = axes[i].plot(px_1s[i], py_1s[i], '-r', label=r'CAR W1', linewidth=2, marker='^', markersize=5, alpha = 1.0)
+        line2, = axes[i].plot(px_2s[i], py_2s[i], '-m', label=r'CAR W2', linewidth=2, marker='D', markersize=6, alpha = 1.0)
+        line3, = axes[i].plot(px_3s[i], py_3s[i], '-c', label=r'CAR W3', linewidth=2, marker='*', markersize=5, alpha = 1.0)
+        # change to photocopy safe
+        line_ped.set_color(colors['ped'])
+        line_demo.set_color(colors['demo'])
+        line1.set_color(colors['car1'])
+        line2.set_color(colors['car2'])
+        line3.set_color(colors['car3'])
         lines_ped.append(line_ped)
         lines_demo.append(line_demo)
         lines_1.append(line1)
         lines_2.append(line2)
         lines_3.append(line3)
 
-        ax[i].plot(x_peds[i][-1], y_peds[i][-1], 'bo')
-        ax[i].text(x_peds[i][-1], y_peds[i][-1], f'  pedestrian\n  end', fontsize=9)
+        axes[i].plot(x_peds[i][-1], y_peds[i][-1], 'o', color=colors['ped'])
+        axes[i].text(x_peds[i][-1], y_peds[i][-1], f'  pedestrian\n  end', color=colors['ped'], fontsize=9)
 
         # add $\rho$='+f'{rho:.3f} as text
-        ax[i].text(0.01, 0.4, fr'$\rho_{{W1}}$={rho1[i]:.3f}', transform=ax[i].transAxes, fontsize=11, verticalalignment='top')
-        ax[i].text(0.01, 0.3, fr'$\rho_{{W2}}$={rho2[i]:.3f}', transform=ax[i].transAxes, fontsize=11, verticalalignment='top')
-        ax[i].text(0.01, 0.2, fr'$\rho_{{W3}}$={rho3[i]:.3f}', transform=ax[i].transAxes, fontsize=11, verticalalignment='top')
+        axes[i].text(0.01, 0.4, fr'$\rho_{{W1}}$={rho1[i]:.3f}', transform=axes[i].transAxes, fontsize=11, verticalalignment='top')
+        axes[i].text(0.01, 0.3, fr'$\rho_{{W2}}$={rho2[i]:.3f}', transform=axes[i].transAxes, fontsize=11, verticalalignment='top')
+        axes[i].text(0.01, 0.2, fr'$\rho_{{W3}}$={rho3[i]:.3f}', transform=axes[i].transAxes, fontsize=11, verticalalignment='top')
 
-
+    sub_text = subsample*10
     def animate(i):
         for j in range(len(stl_milp_1)):
             lines_ped[j].set_xdata(x_peds[j][:i:subsample])
@@ -573,18 +591,36 @@ def visualize_grid(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region,
             lines_demo[j].set_xdata(px_demo[:i:subsample])
             lines_demo[j].set_ydata(py_demo[:i:subsample])
             # add temporal markers every 10 steps
-            dx = 0.5
-            dy = 0
-            if i % (subsample*10) == 0:
-                ax[j].text(x_peds[j][i]+dx, y_peds[j][i]+dy, f't={ts[j][i]:.0f}', fontsize=10, color='b')
-                ax[j].text(px_1s[j][i]+dx, py_1s[j][i]+dy, f't={ts[j][i]:.0f}', fontsize=10, color='r')
-                ax[j].text(px_2s[j][i]+dx, py_2s[j][i]+dy, f't={ts[j][i]:.0f}', fontsize=10, color='m')
-                ax[j].text(px_3s[j][i]+dx, py_3s[j][i]+dy, f't={ts[j][i]:.0f}', fontsize=10, color='c')
-                ax[j].text(px_demo[i]+dx, py_demo[i]+dy, f't={ts[j][i]:.0f}', fontsize=10, color='g')
+            # dx1 = [0.0, 2.5, 0.0, 0.0]
+            # dy1 = [-0.25, -0.06, -0.25, 0.1]
+            # dx2 = [0.0, 0.0, -3.0, 0.0]
+            # dy2 = [-0.25, -0.3, 0.05, 0.1]
+            # dx3 = [0.0, 2.0, 3.0, 0.0]
+            # dy3 = [-0.25, 0.09, 0.0, 0.1]
+            # dxdemo = [6.0, 0.0, -3.0, 0.0]
+            # dydemo = [0.0, 0.15, 0.18, 0.1]
+            # dxped = [20.0, 40.0, 60.0, 2.0]
+            # dyped = [20.0, 40.0, 60.0, 0.0]
+            dx1 = [0.0, 2.5, 0.0, 4.0]
+            dy1 = [-0.25, -0.06, -0.25, 0.1]
+            dx2 = [0.0, 0.0, -3.5, -5.0]
+            dy2 = [-0.25, -0.3, 0.1, -0.4]
+            dx3 = [0.0, 2.0, 3.0, -1.0]
+            dy3 = [-0.25, 0.09, 0.0, 0.2]
+            dxdemo = [6.0, 0.0, -2.5, 0.0]
+            dydemo = [0.0, 0.15, 0.18, 0.1]
+            dxped = [20.0, 40.0, 60.0, 2.0]
+            dyped = [20.0, 40.0, 60.0, 0.0]
+            if i % sub_text == 0:
+                axes[j].text(x_peds[j][i]+dxped[int(i/sub_text)], y_peds[j][i]+dyped[int(i/sub_text)], f't={ts[j][i]:.0f}', fontsize=10, color=colors['ped'], weight='bold')
+                axes[j].text(px_1s[j][i]+dx1[int(i/sub_text)], py_1s[j][i]+dy1[int(i/sub_text)], f't={ts[j][i]:.0f}', fontsize=10, color=colors['car1'], weight='bold')
+                axes[j].text(px_2s[j][i]+dx2[int(i/sub_text)], py_2s[j][i]+dy2[int(i/sub_text)], f't={ts[j][i]:.0f}', fontsize=10, color=colors['car2'], weight='bold')
+                axes[j].text(px_3s[j][i]+dx3[int(i/sub_text)], py_3s[j][i]+dy3[int(i/sub_text)], f't={ts[j][i]:.0f}', fontsize=10, color=colors['car3'], weight='bold')
+                axes[j].text(px_demo[i]+dxdemo[int(i/sub_text)], py_demo[i]+dydemo[int(i/sub_text)], f't={ts[j][i]:.0f}', fontsize=10, color=colors['demo'], weight='bold')
 
         return lines_ped, lines_demo, lines_1, lines_2, lines_3
     
-    handles1, labels1 = ax[0].get_legend_handles_labels()
+    handles1, labels1 = axes[0].get_legend_handles_labels()
     legend = fig.legend(
     handles=handles1,
     labels=labels1,
@@ -599,10 +635,10 @@ def visualize_grid(px_demo, py_demo, stl_milp_1, stl_milp_2, stl_milp_3, region,
     ani = animation.FuncAnimation(fig, animate, frames=len(ts[0])+1, interval=sampling_time*1000/subsample/2, repeat=False)
     # plt.legend(fontsize=16)
     for i in range(len(stl_milp_1)):
-        ax[i].set_xlim([-2, 140])
-        ax[i].set_ylim([0.5, 5])
+        axes[i].set_xlim([-2, 140])
+        axes[i].set_ylim([0.5, 5])
     fig .tight_layout()
-    fig.subplots_adjust(top=0.75)
+    fig.subplots_adjust(top=0.85)
     # change font to times new roman
     plt.rcParams['font.family'] = 'Times New Roman'
     plt.show()
